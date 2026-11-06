@@ -88,6 +88,12 @@
   .dashboard-chart-card {
     @apply min-w-0 rounded-3xl bg-slate-50 px-4 py-4 lg:px-5;
   }
+  .workspace-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.19em] text-primary-700;
+  }
+  .workspace-page-title {
+    @apply mt-1 break-words text-[clamp(1.75rem,2.8vw,2.4rem)] leading-tight tracking-tight;
+  }
   .patient-snapshot {
     @apply min-w-0 rounded-3xl border border-clinical-border/70 bg-[#f9f9f6] p-4 sm:p-5 xl:p-6;
     box-shadow: 0 12px 30px rgb(26 43 32 / 7%), 0 2px 6px rgb(26 43 32 / 4%);

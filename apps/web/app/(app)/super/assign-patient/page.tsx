@@ -277,8 +277,9 @@ export default function AssignPatientPage() {
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in-up">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <UserPlus className="w-5 h-5 text-purple-600" />
+        <p className="workspace-eyebrow">Lead doctor workspace</p>
+        <h1 className="workspace-page-title flex items-center gap-2">
+          <UserPlus className="size-5 shrink-0 text-primary-700" aria-hidden="true" />
           Assign Patient to Doctor
         </h1>
         <p className="text-xs text-clinical-muted mt-0.5">

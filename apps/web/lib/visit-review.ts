@@ -1,5 +1,5 @@
 import type { CheckIn, Patient } from "@trialpulse/types";
-import { checkInObservationDate, checkInReportedPain, questionsFor, readHeadacheLocation, readHomeAnswers, type HeadacheLocation } from "@/lib/home-tracker";
+import { checkInObservationDate, checkInReportedPain, demoCheckInPrefix, questionsFor, readHeadacheLocation, readHomeAnswers, type HeadacheLocation } from "@/lib/home-tracker";
 
 export const measures = {
   cough: { label: "Night cough", unit: "", kind: "yes-no", color: "#23704c" },
@@ -196,7 +196,8 @@ export function fromExistingPatient(patient: Patient, checkins: CheckIn[]): Revi
       const missed = /^Medications missed: /m.test(entry.transcript);
       const homeAnswers = readHomeAnswers(entry.transcript);
       return [{
-        id: entry.id, day, recordedAt: entry.timestamp, source: practiceCase ? "Fictional check-in" : "Check-in",
+        id: entry.id, day, recordedAt: entry.timestamp,
+        source: practiceCase || entry.transcript.startsWith(demoCheckInPrefix) ? "Fictional check-in" : "Check-in",
         detail: entry.transcript,
         headacheLocation: homeAnswers.headache === 1 ? readHeadacheLocation(entry.transcript) : undefined,
         values: { checkin: 1, ...homeAnswers, ...(missed ? { medication: 1 } : {}), ...(pain === undefined ? {} : { pain }) },

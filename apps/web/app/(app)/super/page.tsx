@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Patient, Alert, CheckIn } from "@trialpulse/types";
 import { api } from "@/lib/api";
 import { rankPatientsByRisk, type RiskScoredPatient } from "@/lib/risk-scoring";
@@ -10,7 +12,7 @@ import { predictDropoutRisk } from "@/lib/dropout-risk";
 import { recordAuditEvent } from "@/lib/security/audit";
 import { MOCK_DOCTORS, type Doctor } from "@/data/mock-doctors";
 import { HighRiskPatientCard } from "@/components/HighRiskPatientCard";
-import { SmartAlertBar } from "@/components/SmartAlertBar";
+import { DashboardNotifications } from "@/components/DashboardNotifications";
 import { Skeleton } from "@/components/Skeleton";
 import { ErrorState } from "@/components/ErrorState";
 import { toast } from "sonner";
@@ -29,6 +31,7 @@ import {
   ChevronRight,
   CheckCircle2,
   XCircle,
+  UserPlus,
 } from "lucide-react";
 
 // ── Doctor data imported from shared mock ────────────────────
@@ -42,6 +45,8 @@ const statusColor = {
 // ── Component ────────────────────────────────────────────────
 
 export default function SuperDoctorPage() {
+  const router = useRouter();
+  const openPatient = (id: string) => router.push("/patient/" + encodeURIComponent(id));
   const [patients, setPatients] = useState<Patient[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [checkins, setCheckins] = useState<CheckIn[]>([]);
@@ -128,25 +133,21 @@ export default function SuperDoctorPage() {
 
   return (
     <div className="space-y-5">
-      {/* ── Header ─────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Shield className="w-5 h-5 text-purple-600" />
-            Lead Doctor Command Center
-          </h1>
-          <p className="text-xs text-clinical-muted mt-0.5">
-            Global oversight &bull; All doctors &bull; All patients &bull;
-            Real-time
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="workspace-eyebrow">Lead doctor workspace</p>
+          <h1 className="workspace-page-title">Lead Doctor Command Center</h1>
+          <p className="mt-1 text-sm text-clinical-muted">
+            {loading ? "Loading your workspace\u2026" : patients.length + " patients \u00b7 " + alerts.length + " open alerts \u00b7 " + criticalCount + " in the critical risk tier"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-600">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Live monitoring
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <DashboardNotifications alerts={smartAlerts} onSelect={openPatient} />
+          <Link href="/super/assign-patient" className="btn-primary inline-flex min-h-11 items-center gap-2 text-sm">
+            <UserPlus size={16} aria-hidden="true" /> Assign patient
+          </Link>
         </div>
-      </div>
+      </header>
 
       {/* ── Stats Strip ────────────────────────────────────── */}
       {loading ? (
@@ -165,9 +166,9 @@ export default function SuperDoctorPage() {
           />
           <StatCard
             icon={<Stethoscope className="w-4 h-4" />}
-            label="Active Doctors"
+            label="Sample doctors"
             value={MOCK_DOCTORS.length}
-            accent="bg-purple-50 text-purple-600"
+            accent="bg-primary-50 text-primary-700"
           />
           <StatCard
             icon={<AlertTriangle className="w-4 h-4" />}
@@ -190,13 +191,8 @@ export default function SuperDoctorPage() {
         </div>
       )}
 
-      {/* ── Smart Alerts ───────────────────────────────────── */}
-      {!loading && smartAlerts.length > 0 && (
-        <SmartAlertBar alerts={smartAlerts} onAlertClick={() => {}} />
-      )}
-
       {/* ── Tab Bar ────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-x-1 border-b border-clinical-border">
+      <nav aria-label="Command center views" className="flex flex-wrap gap-1 rounded-xl bg-slate-50 p-1">
         {(
           [
             { id: "overview", label: "Global Overview", icon: Shield },
@@ -207,18 +203,20 @@ export default function SuperDoctorPage() {
         ).map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setSelectedTab(tab.id)}
-            className={`flex min-h-11 items-center gap-1.5 border-b-2 px-2.5 py-2 text-sm font-medium transition-colors sm:px-4 ${
+            aria-pressed={selectedTab === tab.id}
+            className={`flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors sm:px-4 ${
               selectedTab === tab.id
-                ? "border-primary-600 text-primary-700"
-                : "border-transparent text-clinical-muted hover:text-slate-700"
+                ? "bg-primary-100 text-primary-700"
+                : "text-clinical-muted hover:bg-slate-100 hover:text-slate-700"
             }`}
           >
             <tab.icon className="w-3.5 h-3.5" />
             {tab.label}
           </button>
         ))}
-      </div>
+      </nav>
 
       {/* ── Tab Content ────────────────────────────────────── */}
       {selectedTab === "overview" && (
@@ -226,11 +224,15 @@ export default function SuperDoctorPage() {
           rankedPatients={rankedPatients}
           loading={loading}
           doctors={MOCK_DOCTORS}
+          onSelectPatient={openPatient}
         />
       )}
 
       {selectedTab === "doctors" && (
-        <DoctorPerformanceTab doctors={MOCK_DOCTORS} />
+        <section className="space-y-3" aria-label="Doctor performance">
+          <p className="text-sm text-clinical-muted">Sample doctor data</p>
+          <DoctorPerformanceTab doctors={MOCK_DOCTORS} />
+        </section>
       )}
 
       {selectedTab === "alerts" && (
@@ -262,7 +264,7 @@ function StatCard({
   accent: string;
 }) {
   return (
-    <div className="card py-3 px-3 flex items-center gap-2.5">
+    <div className="dashboard-chart-card flex items-center gap-2.5 !rounded-2xl !p-3">
       <div
         className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${accent}`}
       >
@@ -286,21 +288,23 @@ function OverviewTab({
   rankedPatients,
   loading,
   doctors,
+  onSelectPatient,
 }: {
   rankedPatients: RiskScoredPatient[];
   loading: boolean;
   doctors: Doctor[];
+  onSelectPatient: (id: string) => void;
 }) {
   const top5 = rankedPatients.slice(0, 5);
 
   return (
     <div className="grid min-w-0 gap-5 lg:grid-cols-2">
       {/* Left: Top 5 High-Risk Patients Globally */}
-      <div>
-        <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-1.5">
+      <section className="workspace-panel" aria-labelledby="lead-patient-review">
+        <h2 id="lead-patient-review" className="section-title mb-3 flex items-center gap-1.5">
           <Flame className="w-4 h-4 text-red-500" />
           Highest Risk Patients (Global)
-        </h3>
+        </h2>
         <div className="space-y-2">
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
@@ -312,28 +316,24 @@ function OverviewTab({
             </div>
           ) : (
             top5.map((scored, i) => (
-              <div key={scored.patient.id} className="relative">
-                <HighRiskPatientCard
-                  scoredPatient={scored}
-                  rank={i + 1}
-                  onClick={() => {}}
-                />
-                {/* Assigned doctor badge */}
-                <div className="absolute top-2 right-2 text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
-                  {doctors[i % doctors.length]?.name.split(" ").slice(0, 2).join(" ")}
-                </div>
-              </div>
+              <HighRiskPatientCard
+                key={scored.patient.id}
+                scoredPatient={scored}
+                rank={i + 1}
+                onClick={() => onSelectPatient(scored.patient.id)}
+              />
             ))
           )}
         </div>
-      </div>
+      </section>
 
       {/* Right: Doctor Status Overview */}
-      <div>
-        <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-1.5">
+      <section className="dashboard-chart-card" aria-labelledby="lead-doctor-status">
+        <h2 id="lead-doctor-status" className="section-title flex items-center gap-1.5">
           <Stethoscope className="w-4 h-4 text-purple-500" />
           Doctor Status
-        </h3>
+        </h2>
+        <p className="mb-3 mt-1 text-xs text-clinical-muted">Sample doctor data</p>
         <div className="space-y-2">
           {doctors.map((doc) => (
             <div
@@ -410,7 +410,7 @@ function OverviewTab({
             </div>
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

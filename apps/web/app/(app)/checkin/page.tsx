@@ -63,11 +63,23 @@ export default function CheckInPage() {
   // ── Patient mode: show guided daily check-in ──────────
   if (role === "patient" && patientRecord) {
     return (
-      <div className="max-w-2xl mx-auto space-y-6 pb-8">
-        <PatientInboxNotice />
-        <PatientDailyCheckIn patient={patientRecord} onSaved={() => setCheckInRevision((revision) => revision + 1)} />
-        <PatientCheckInHistory key={patientRecord.id} patientId={patientRecord.id} revision={checkInRevision} />
-        <PassiveMonitor />
+      <div className="mx-auto max-w-[82rem] space-y-5 pb-8">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="workspace-eyebrow">Patient workspace</p>
+            <h1 className="workspace-page-title">Hello, {patientRecord.name.trim().split(/\s+/)[0]}.</h1>
+            <p className="mt-1 text-sm text-clinical-muted">Share how you’re feeling and see your care updates.</p>
+          </div>
+          <PatientInboxNotice />
+        </header>
+        <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <PatientDailyCheckIn patient={patientRecord} onSaved={() => setCheckInRevision((revision) => revision + 1)} />
+          <aside className="dashboard-chart-card space-y-3" aria-labelledby="patient-activity-heading">
+            <h2 id="patient-activity-heading" className="section-title">Your activity</h2>
+            <PatientCheckInHistory key={patientRecord.id} patientId={patientRecord.id} revision={checkInRevision} />
+            <PassiveMonitor />
+          </aside>
+        </div>
       </div>
     );
   }

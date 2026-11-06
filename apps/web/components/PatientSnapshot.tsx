@@ -29,6 +29,7 @@ export function PatientSnapshot({ patient, checkIns, simulated, onClose, alertCo
   const review = "/patient/" + encodeURIComponent(patient.id) + "/review";
   const initials = patient.name.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
   const demo = record.practiceCase || simulated;
+  const includesDemoEntries = days.some(({ entries }) => entries.some((entry) => entry.source === "Fictional check-in"));
   const name = demo ? patient.name.replace(/\s+\(Demo\)$/, "") : patient.name;
   const originalPreview = latest?.detail.split("Home tracker ·")[0]?.trim();
   const narrative = record.practiceCase ? originalPreview?.replace(/^Fictional HealthGPS demo check-in\.\s*/, "") : originalPreview;
@@ -59,7 +60,7 @@ export function PatientSnapshot({ patient, checkIns, simulated, onClose, alertCo
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-xl tracking-tight">Symptom trends</h3>
-          <p className="text-xs text-clinical-muted">{record.practiceCase || simulated ? "Illustrative check-ins" : "Recorded check-ins"}</p>
+          <p className="text-xs text-clinical-muted">{demo ? "Illustrative check-ins" : includesDemoEntries ? "Includes fictional demo check-ins" : "Recorded check-ins"}</p>
         </div>
         <label>
           <span className="sr-only">Snapshot period</span>

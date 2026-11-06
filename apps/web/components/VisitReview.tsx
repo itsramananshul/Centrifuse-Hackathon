@@ -266,6 +266,7 @@ function ReviewWorkspace({ patient, extra, onDemoSave, comparisonDate }: {
   const reviewedIds = review ? new Set(review.ids) : null;
   const newEntries = reviewedIds ? records.filter((entry) => !reviewedIds.has(entry.id)) : null;
   const loggedDays = days.filter((day) => day.entries.length > 0).length;
+  const demoEntries = days.reduce((total, day) => total + day.entries.filter((entry) => entry.source === "Fictional check-in").length, 0);
   const homeDays = days.filter(hasHomeReport).length;
   const latestHome = days.findLast(hasHomeReport);
   const reportingDays = (periods?.after ?? days).filter(({ day }) => fixedDates || day < patient.end);
@@ -430,6 +431,7 @@ function ReviewWorkspace({ patient, extra, onDemoSave, comparisonDate }: {
         <div className="card"><p className="flex items-center gap-2 text-sm text-slate-700"><CalendarDays size={14} aria-hidden /> Record coverage</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{loggedDays} / {days.length}</p>
           <p className="text-xs text-clinical-muted">Days with at least one entry</p>
+          {!fixedDates && demoEntries > 0 && <p className="mt-1 text-xs text-clinical-muted">Includes {demoEntries} fictional demo {demoEntries === 1 ? "check-in" : "check-ins"}</p>}
           {patient.chart && <p className="mt-1 text-xs text-clinical-muted">{homeDays} home tracker days · {summarize(days, "lung").logged} spirometer days</p>}
         </div>
       </div>

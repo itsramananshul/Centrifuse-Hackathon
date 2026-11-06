@@ -169,13 +169,10 @@ export function PassiveMonitor() {
           <h3 className="text-sm font-semibold text-slate-900">
             Passive Health Monitor
           </h3>
-          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
-            Presage SmartSpectra
-          </span>
+          <span className="practice-badge">Demo</span>
         </div>
         <p className="text-xs text-clinical-muted mb-4 leading-relaxed">
-          Uses your camera to measure pulse rate, breathing rate, and stress
-          levels in real-time. Powered by Presage SmartSpectra SDK.
+          Preview simulated pulse, breathing, and stress readings alongside an optional camera preview.
         </p>
         <button
           onClick={startMonitoring}
@@ -203,7 +200,7 @@ export function PassiveMonitor() {
             Passive Monitor
           </h3>
           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">
-            LIVE
+            SIMULATED
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -265,15 +262,9 @@ export function PassiveMonitor() {
               </div>
             )}
 
-            {/* REC badge */}
+            {/* Camera preview badge */}
             <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 text-[9px] text-white font-medium">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-              REC
-            </div>
-
-            {/* Presage badge */}
-            <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-black/50 text-[8px] text-white/70">
-              Presage SmartSpectra
+              Camera preview
             </div>
           </div>
 
@@ -355,15 +346,14 @@ export function PassiveMonitor() {
               <>
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
                 <p className="text-[11px] text-amber-700">
-                  Elevated readings detected. Consider a breathing exercise or
-                  contact your care team if symptoms persist.
+                  This demo is showing an elevated sample reading.
                 </p>
               </>
             ) : (
               <>
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
                 <p className="text-[11px] text-slate-600">
-                  All vitals within normal range. Keep up the good work!
+                  This demo is showing a typical sample reading.
                 </p>
               </>
             )}
@@ -371,8 +361,7 @@ export function PassiveMonitor() {
 
           {/* Disclaimer */}
           <p className="text-[8px] text-clinical-muted mt-2 leading-relaxed text-center">
-            Powered by Presage SmartSpectra SDK. Estimates only — not
-            medical-grade. Does not replace clinical monitoring.
+            These values are simulated for demonstration.
           </p>
         </>
       )}

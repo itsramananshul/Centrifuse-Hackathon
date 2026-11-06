@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CalendarDays } from "lucide-react";
 import type { CheckIn } from "@trialpulse/types";
 import { api } from "@/lib/api";
-import { checkInObservationDate } from "@/lib/home-tracker";
+import { checkInObservationDate, demoCheckInPrefix } from "@/lib/home-tracker";
 
 const dateLabel = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
 
@@ -34,7 +35,7 @@ export function PatientCheckInHistory({ patientId, revision }: { patientId: stri
     if (!event.currentTarget.open) setResult(undefined);
   }}>
     <summary className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400">
-      Check-in history
+      <CalendarDays size={16} className="text-primary-700" aria-hidden="true" /> Check-in history
     </summary>
     {result?.revision !== revision ? <p className="text-sm text-clinical-muted" role="status">Loading your check-ins…</p> :
       !entries ? <p className="text-sm text-clinical-muted" role="alert">Your check-ins could not be loaded. Close and reopen this section to try again.</p> :
@@ -48,6 +49,7 @@ export function PatientCheckInHistory({ patientId, revision }: { patientId: stri
               <details>
                 <summary className="min-h-11 cursor-pointer rounded-md py-3 text-sm font-medium text-primary-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400">
                   <time dateTime={day}>{dateLabel.format(new Date(day))}</time>
+                  {entry.transcript.startsWith(demoCheckInPrefix) && <span className="practice-badge ml-2">Demo</span>}
                 </summary>
                 <p className="mb-3 whitespace-pre-wrap break-words text-sm text-slate-700">{entry.transcript}</p>
               </details>

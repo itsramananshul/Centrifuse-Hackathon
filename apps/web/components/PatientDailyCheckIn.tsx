@@ -384,9 +384,9 @@ export function PatientDailyCheckIn({
           )}
         </div>
 
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">
+        <h2 className="text-2xl font-semibold text-slate-900 mb-2">
           Check-in Complete
-        </h1>
+        </h2>
 
         <p className="text-slate-600 mb-6 leading-relaxed">
           {hasAdverseEvent
@@ -446,14 +446,13 @@ export function PatientDailyCheckIn({
   // ── Main form ───────────────────────────────────────────
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-8">
-      {/* Header */}
-      <div className="text-center pt-2">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+    <section className="min-w-0 space-y-4" aria-labelledby="daily-check-in-heading">
+      <header className="dashboard-chart-card">
+        <h2 id="daily-check-in-heading" className="text-2xl tracking-tight">
           Daily Health Check-in
-        </h1>
+        </h2>
         <p className="text-sm text-clinical-muted mt-1">
-          Hi {patient.name.split(" ")[0]}, how are you feeling today?
+          How are you feeling today?
         </p>
         {doctorName && (
           <div className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded-full bg-primary-50 border border-primary-200 text-sm text-primary-300">
@@ -461,7 +460,7 @@ export function PatientDailyCheckIn({
             <span>Your doctor: <strong>{doctorName}</strong></span>
           </div>
         )}
-      </div>
+      </header>
 
       <label className="workspace-panel flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-900">
         Check-in date
@@ -688,8 +687,8 @@ export function PatientDailyCheckIn({
       </button>
 
       <p className="text-center text-[11px] text-clinical-muted">
-        Your data is securely shared with your care team only.
+        Your check-in is saved to your HealthGPS record.
       </p>
-    </div>
+    </section>
   );
 }

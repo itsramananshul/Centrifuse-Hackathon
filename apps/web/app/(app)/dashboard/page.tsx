@@ -17,7 +17,7 @@ import { generateSmartAlerts } from "@/lib/alert-engine";
 import { computeCohortMetrics } from "@/lib/cohort-analytics";
 import { generateSyntheticData, type SyntheticData } from "@/lib/simulation/scenarios";
 import { recordAuditEvent } from "@/lib/security/audit";
-import { SmartAlertBar } from "@/components/SmartAlertBar";
+import { DashboardNotifications } from "@/components/DashboardNotifications";
 import { DashboardHomeReviewQueue } from "@/components/HomeReviewQueue";
 import { DashboardOverview, overviewPanel } from "@/components/DashboardOverview";
 import { WorkspaceDialog } from "@/components/WorkspaceDialog";
@@ -39,7 +39,6 @@ import {
   FlaskConical,
   ArrowRight,
   ArrowUpRight,
-  Bell,
   ChartNoAxesCombined,
   ClipboardList,
   SlidersHorizontal,
@@ -125,7 +124,6 @@ export default function DashboardPage() {
   const [snapshotOpen, setSnapshotOpen] = useState(true);
   const [displayName, setDisplayName] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
-  const notifications = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const query = window.matchMedia("(min-width: 1280px)");
@@ -469,10 +467,10 @@ export default function DashboardPage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-x-5 gap-y-3 px-0.5">
         <div className="min-w-0">
-          <p suppressHydrationWarning className="text-[11px] font-semibold uppercase tracking-[0.19em] text-primary-700">
+          <p suppressHydrationWarning className="workspace-eyebrow">
             {new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(new Date())}
           </p>
-          <h1 className="mt-1 break-words text-[clamp(1.75rem,2.8vw,2.4rem)] leading-tight tracking-tight">
+          <h1 className="workspace-page-title">
             {displayName ? "Good " + (new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening") + ", " + displayName + "." : "Clinical overview"}
           </h1>
           <p className="mt-1 text-sm text-clinical-muted">{loading ? "Loading your workspace…" : mergedPatients.length + (mergedPatients.length === 1 ? " patient in your care" : " patients in your care")}</p>
@@ -484,19 +482,7 @@ export default function DashboardPage() {
             <input ref={searchInput} type="search" name="patient-search" className="min-h-11 w-full border-b border-clinical-border bg-transparent pl-7 pr-2 text-base placeholder:text-slate-500 focus:border-primary-400 sm:w-[clamp(11rem,24vw,22rem)]"
               value={search} placeholder="Search patients" onChange={(event) => { setSearch(event.target.value); setQueueLimit(5); }} />
           </label>
-          <button type="button" popoverTarget="dashboard-notifications" aria-label={"Notifications" + (smartAlerts.length ? " (" + smartAlerts.length + ")" : "")}
-            className="btn-ghost relative grid size-10 shrink-0 place-items-center !p-0">
-            <Bell size={18} aria-hidden="true" />
-            {smartAlerts.length > 0 && <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-clinical-danger-action px-0.5 text-[10px] font-semibold text-white" aria-hidden="true">{smartAlerts.length}</span>}
-          </button>
-          <div id="dashboard-notifications" ref={notifications} popover="auto" aria-label="Notifications"
-            className="workspace-panel fixed inset-auto right-3 top-16 m-0 max-h-[calc(100dvh-5rem)] w-[min(25rem,calc(100%-1.5rem))] overflow-auto shadow-xl sm:right-6">
-            <h2 className="mb-2 text-xl tracking-tight">Notifications</h2>
-            {smartAlerts.length ? <SmartAlertBar stacked alerts={smartAlerts} onAlertClick={(patientId) => {
-              notifications.current?.hidePopover();
-              handleSelectPatient(patientId);
-            }} /> : <p className="text-sm text-clinical-muted">No smart alerts to review.</p>}
-          </div>
+          <DashboardNotifications alerts={smartAlerts} onSelect={handleSelectPatient} />
           <Link href="/settings" aria-label="Profile settings" className="initials-badge">
             <UserRound size={18} aria-hidden="true" />
           </Link>
