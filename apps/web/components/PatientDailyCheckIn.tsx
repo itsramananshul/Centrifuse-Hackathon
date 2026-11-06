@@ -462,6 +462,39 @@ export function PatientDailyCheckIn({
         )}
       </header>
 
+      <section className="workspace-panel border-primary-200 bg-primary-50/60" aria-labelledby="patient-voice-heading">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 id="patient-voice-heading" className="section-title">Voice check-in</h3>
+            <p className="section-subtitle mt-1">Record how you’re feeling, or type an update below.</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleRecord}
+            className={"inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium " +
+              (isRecording ? "bg-clinical-danger-action text-white hover:bg-clinical-danger-action-hover" : "btn-primary")}
+          >
+            {isRecording ? <MicOff size={17} aria-hidden="true" /> : <Mic size={17} aria-hidden="true" />}
+            {isRecording ? "Stop recording" : "Start recording"}
+          </button>
+        </div>
+        <p role="status" className="mt-2 text-sm font-medium text-slate-700">
+          {isRecording ? "Recording… " + recordingTime + "s" : audioFile ? "Recording saved" : ""}
+        </p>
+        {(transcript || !isRecording) && (
+          <label className="mt-2 block">
+            <span className="sr-only">Your voice or written update</span>
+            <textarea
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder="Your words will appear here as you speak, or type your update…"
+              rows={2}
+              className="input resize-y text-base"
+            />
+          </label>
+        )}
+      </section>
+
       <label className="workspace-panel flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-900">
         Check-in date
         <input
@@ -531,143 +564,51 @@ export function PatientDailyCheckIn({
           </label>}
         </div>
       </fieldset>
-      <details className="workspace-panel" onToggle={(event) => {
-        if (isRecording && !event.currentTarget.open) event.currentTarget.open = true;
-      }}>
-        <summary className="workspace-disclosure">Add more details</summary>
-        <div className="space-y-2">
-          {/* ── Step 1: Voice Update ────────────────────────── */}
-          <details className="workspace-panel" onToggle={(event) => {
-            if (isRecording && !event.currentTarget.open) event.currentTarget.open = true;
-          }}>
-            <summary className="workspace-disclosure">Add a voice or written update</summary>
-
-            <p className="text-xs text-clinical-muted mb-4">
-              Tell us how you're feeling in your own words. Tap to record.
-            </p>
-
-            {/* Record button */}
-            <div className="flex items-center gap-4 mb-3">
-              <button
-                onClick={handleRecord}
-                aria-label={isRecording ? "Stop recording" : "Start recording"}
-                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-md flex-shrink-0 ${
-                  isRecording
-                    ? "bg-red-500 hover:bg-red-600 animate-pulse shadow-red-200"
-                    : "bg-primary-600 hover:bg-primary-700 shadow-primary-200"
-                }`}
-              >
-                {isRecording ? (
-                  <MicOff className="w-7 h-7 text-white" />
-                ) : (
-                  <Mic className="w-7 h-7 text-white" />
-                )}
-              </button>
-
-              <div className="flex-1">
-                <p className="text-sm font-medium text-slate-700">
-                  {isRecording
-                    ? `Recording... ${recordingTime}s`
-                    : audioFile
-                      ? "Recording saved"
-                      : "Tap to start recording"}
-                </p>
-                <p className="text-xs text-clinical-muted mt-0.5">
-                  {isRecording
-                    ? "Speak naturally, then tap again to stop"
-                    : "Your message will be shared with your care team"}
-                </p>
-              </div>
-            </div>
-
-            {/* Transcript preview / manual input */}
-            {(transcript || !isRecording) && (
-              <textarea
-                value={transcript}
-                onChange={(e) => setTranscript(e.target.value)}
-                placeholder="Your words will appear here as you speak, or type your update..."
-                rows={3}
-                className="input resize-none text-sm"
-              />
-            )}
-          </details>
-
-          {/* ── Step 3: Side Effects ────────────────────────── */}
-          <details className="workspace-panel">
-            <summary className="workspace-disclosure">Report side effects</summary>
-
-            <p className="text-xs text-clinical-muted mb-3">
-              Have you noticed any side effects? Describe anything unusual — nausea,
-              fatigue, dizziness, rashes, or other changes.
-            </p>
-
-            <textarea
-              value={sideEffects}
-              onChange={(e) => setSideEffects(e.target.value)}
-              placeholder="e.g., I've been feeling more tired than usual and had some nausea after my morning dose..."
-              rows={3}
-              className="input resize-none text-sm"
-            />
-          </details>
-
-          {/* ── Step 4: Medication Tracking ─────────────────── */}
-          <details className="workspace-panel">
-            <summary className="workspace-disclosure">Log medication</summary>
-
-            <p className="text-xs text-clinical-muted mb-4">
-              Did you take your medications today?
-            </p>
-
-            <div className="space-y-3">
-              {medications.map((med) => (
-                <div
-                  key={med.id}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-clinical-card"
-                >
-                  <Pill className="w-5 h-5 text-slate-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-slate-800">
-                      {med.name}
-                    </div>
-                    <div className="text-[11px] text-clinical-muted">
-                      {med.dosage}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => toggleMed(med.id, true)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        med.taken === true
-                          ? "bg-emerald-100 text-emerald-700 ring-2 ring-emerald-500/20"
-                          : "bg-slate-50 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 border border-slate-200"
-                      }`}
-                    >
-                      Taken
-                    </button>
-                    <button
-                      onClick={() => toggleMed(med.id, false)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        med.taken === false
-                          ? "bg-red-100 text-red-700 ring-2 ring-red-500/20"
-                          : "bg-slate-50 text-slate-500 hover:bg-red-50 hover:text-red-600 border border-slate-200"
-                      }`}
-                    >
-                      Missed
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {allMedsTaken && (
-              <div className="mt-3 flex items-center gap-2 text-xs font-medium text-emerald-600">
-                <CheckCircle2 className="w-4 h-4" />
-                All medications taken — great job!
-              </div>
-            )}
-          </details>
+      <section className="workspace-panel" aria-labelledby="patient-medication-heading">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 id="patient-medication-heading" className="section-title">Medications</h3>
+          <span className="practice-badge">Demo list</span>
         </div>
-      </details>
+        <p className="section-subtitle mt-1">Log what you took today. You can leave an item unanswered.</p>
+        <ul className="mt-3 divide-y divide-clinical-border">
+          {medications.map((med) => (
+            <li key={med.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+              <Pill size={16} className="shrink-0 text-primary-700" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-800">{med.name}</p>
+                <p className="text-xs text-clinical-muted">{med.dosage}</p>
+              </div>
+              <div className="ml-auto flex flex-wrap gap-1" role="group" aria-label={med.name}>
+                <button type="button" onClick={() => toggleMed(med.id, true)} aria-pressed={med.taken === true}
+                  className={"min-h-11 rounded-lg border px-3 text-sm " + (med.taken === true ? "border-primary-400 bg-primary-100 font-semibold text-primary-700" : "border-clinical-border hover:bg-primary-50")}>
+                  Taken
+                </button>
+                <button type="button" onClick={() => toggleMed(med.id, false)} aria-pressed={med.taken === false}
+                  className={"min-h-11 rounded-lg border px-3 text-sm " + (med.taken === false ? "border-amber-400 bg-amber-50 font-semibold text-amber-900" : "border-clinical-border hover:bg-amber-50")}>
+                  Missed
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {allMedsTaken && <p className="mt-2 flex items-center gap-2 text-xs font-medium text-primary-700">
+          <CheckCircle2 size={16} aria-hidden="true" /> All medications taken.
+        </p>}
+      </section>
+      <section className="workspace-panel" aria-labelledby="patient-side-effects-heading">
+        <h3 id="patient-side-effects-heading" className="section-title">Side effects</h3>
+        <p className="section-subtitle mt-1">Share anything unusual you noticed today.</p>
+        <label className="mt-3 block">
+          <span className="sr-only">Side effects</span>
+          <textarea
+            value={sideEffects}
+            onChange={(e) => setSideEffects(e.target.value)}
+            placeholder="Describe any side effects you noticed…"
+            rows={2}
+            className="input resize-y text-base"
+          />
+        </label>
+      </section>
       <button
         onClick={handleSubmit}
         disabled={!painLevel || isSubmitting}
