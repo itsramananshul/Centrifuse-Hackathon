@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { Patient, CheckIn, Alert } from "@trialpulse/types";
 import { api } from "@/lib/api";
+import { AlertFollowUp } from "@/components/AlertFollowUp";
 import { isPracticePatient } from "@/lib/visit-review";
 import {
   PatientStatusBadge,
@@ -179,6 +180,7 @@ export default function PatientDetailPage() {
                     </span>
                   </div>
                   <p className="text-sm text-slate-700">{alert.message}</p>
+                  <AlertFollowUp alert={alert} checkIns={checkins} />
                 </div>
                 <button
                   onClick={() => handleAcknowledge(alert.id)}

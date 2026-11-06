@@ -1,4 +1,5 @@
 import type { Patient, CheckIn, AiAnalysis, Alert } from "@trialpulse/types";
+import { checkInNarrative, hasUnnegatedMention } from "@/lib/check-in-language";
 
 // ============================================================
 // Types
@@ -191,10 +192,10 @@ function detectDistressSignals(
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   )[0];
 
-  const text = latest.transcript.toLowerCase();
+  const text = checkInNarrative(latest.transcript);
 
   // Check high-severity keywords first
-  const highMatch = DISTRESS_KEYWORDS_HIGH.find((kw) => text.includes(kw));
+  const highMatch = DISTRESS_KEYWORDS_HIGH.find((kw) => hasUnnegatedMention(text, kw));
   if (highMatch) {
     return {
       id: `distress-${patient.id}`,
@@ -210,7 +211,7 @@ function detectDistressSignals(
 
   // Count medium keywords
   const mediumMatches = DISTRESS_KEYWORDS_MEDIUM.filter((kw) =>
-    text.includes(kw)
+    hasUnnegatedMention(text, kw)
   );
   if (mediumMatches.length >= 3) {
     return {
@@ -230,9 +231,12 @@ function detectDistressSignals(
 
 function detectAdverseReaction(
   patient: Patient,
-  analysis: AiAnalysis | undefined
+  alerts: Alert[]
 ): SmartAlert | null {
-  if (!analysis?.adverseEvent) return null;
+  const alert = alerts.filter((item) =>
+    item.patientId === patient.id && item.type === "adverse_event" && !item.acknowledged
+  ).sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0];
+  if (!alert) return null;
 
   return {
     id: `adverse-${patient.id}`,
@@ -241,8 +245,8 @@ function detectAdverseReaction(
     type: "adverse_reaction",
     severity: "high",
     title: "Adverse event flagged by AI",
-    description: `AI analysis detected a potential adverse drug reaction for ${patient.name}. Immediate review recommended.`,
-    timestamp: new Date().toISOString(),
+    description: alert.message,
+    timestamp: alert.createdAt,
   };
 }
 
@@ -322,7 +326,7 @@ export function generateSmartAlerts(
     const distress = detectDistressSignals(patient, patientCheckins);
     if (distress) smartAlerts.push(distress);
 
-    const adverse = detectAdverseReaction(patient, analysis);
+    const adverse = detectAdverseReaction(patient, alerts);
     if (adverse) smartAlerts.push(adverse);
 
     const dropout = detectDropoutWarning(patient, analysis);

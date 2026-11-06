@@ -5,6 +5,7 @@ import type { RiskScoredPatient } from "@/lib/risk-scoring";
 import { buildPatientTimeline, getPainTrend } from "@/lib/patient-timeline";
 import { predictDropoutRisk } from "@/lib/dropout-risk";
 import { SeverityBadge, RiskBadge } from "@/components/StatusBadge";
+import { AlertFollowUp } from "@/components/AlertFollowUp";
 import { DropoutRiskBar } from "@/components/DropoutRiskBar";
 import { SymptomList } from "@/components/SymptomList";
 import { InsightChip } from "@/components/InsightChip";
@@ -180,6 +181,7 @@ export function PatientDetailPanel({
                     </span>
                   </div>
                   <p className="text-sm text-slate-700">{alert.message}</p>
+                  <AlertFollowUp alert={alert} checkIns={checkins} />
                 </div>
                 <button
                   onClick={() => onAcknowledge(alert.id)}

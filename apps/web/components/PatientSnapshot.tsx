@@ -4,11 +4,12 @@ import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, ChevronRight, MessageSquare, X } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { CheckIn, Patient } from "@trialpulse/types";
+import type { Alert, CheckIn, Patient } from "@trialpulse/types";
+import { newerCheckInForAlert } from "@/lib/alert-follow-up";
 import { comparison, fromExistingPatient, hasHomeReport, makeDays, measures, metricText, shiftDay, shortDate, summarize } from "@/lib/visit-review";
 
-export function PatientSnapshot({ patient, checkIns, simulated, onClose, alertCount, details }: {
-  patient: Patient; checkIns: CheckIn[]; simulated: boolean; onClose?: () => void; alertCount: number; details: ReactNode;
+export function PatientSnapshot({ patient, checkIns, simulated, onClose, alerts, details }: {
+  patient: Patient; checkIns: CheckIn[]; simulated: boolean; onClose?: () => void; alerts: Alert[]; details: ReactNode;
 }) {
   const record = useMemo(() => fromExistingPatient(patient, checkIns.filter((item) => item.patientId === patient.id)), [patient, checkIns]);
   const [period, setPeriod] = useState(record.lastVisit ? "visit" : "7");
@@ -34,6 +35,9 @@ export function PatientSnapshot({ patient, checkIns, simulated, onClose, alertCo
   const originalPreview = latest?.detail.split("Home tracker ·")[0]?.trim();
   const narrative = record.practiceCase ? originalPreview?.replace(/^Fictional HealthGPS demo check-in\.\s*/, "") : originalPreview;
   const binary = metrics.every((metric) => measures[metric].kind === "yes-no");
+  const openAlerts = alerts.filter((alert) => !alert.acknowledged);
+  const alertCount = openAlerts.length;
+  const hasFollowUp = openAlerts.some((alert) => newerCheckInForAlert(alert, checkIns));
 
   return <section aria-labelledby="patient-snapshot-heading" className="min-w-0 space-y-4">
     <div className="flex items-center justify-between gap-2">
@@ -115,6 +119,7 @@ export function PatientSnapshot({ patient, checkIns, simulated, onClose, alertCo
     <details onToggle={(event) => setDetailsOpen(event.currentTarget.open)}>
       <summary className={"min-h-10 cursor-pointer rounded-lg py-2 text-sm " + (alertCount ? "font-medium text-red-700" : "text-slate-600")}>
         {alertCount ? "Active alerts and patient details (" + alertCount + ")" : "More patient details"}
+        {hasFollowUp && <span className="ml-2 inline-block rounded-full bg-primary-100 px-2 py-0.5 text-xs text-primary-700">Newer check-in</span>}
       </summary>
       {detailsOpen && details}
     </details>

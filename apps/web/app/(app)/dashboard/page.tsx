@@ -410,7 +410,7 @@ export default function DashboardPage() {
     checkIns={mergedCheckins}
     simulated={syntheticPatientIds.has(selectedScored.patient.id)}
     onClose={onClose}
-    alertCount={selectedScored.alerts.filter((alert) => !alert.acknowledged).length}
+    alerts={selectedScored.alerts}
     details={<PatientDetailPanel
       scored={selectedScored}
       checkins={mergedCheckins}
