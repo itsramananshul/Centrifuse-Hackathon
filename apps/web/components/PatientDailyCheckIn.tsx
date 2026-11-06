@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { api } from "@/lib/api";
-import { homeQuestions, questionsFor, writeHomeAnswers, writeObservationDate, type HomeQuestion } from "@/lib/home-tracker";
+import { headacheLocations, homeQuestions, questionsFor, writeHeadacheLocation, writeHomeAnswers, writeObservationDate, type HeadacheLocation, type HomeQuestion } from "@/lib/home-tracker";
 import { createClient } from "@/lib/supabase/client";
 import type { Patient } from "@trialpulse/types";
 import { toast } from "sonner";
@@ -16,7 +16,6 @@ import {
   AlertTriangle,
   Heart,
   Pill,
-  FileText,
   Sparkles,
   RotateCcw,
 } from "lucide-react";
@@ -139,6 +138,7 @@ export function PatientDailyCheckIn({
   const [painLevel, setPainLevel] = useState<PainLevel | null>(null);
   const [sideEffects, setSideEffects] = useState("");
   const [homeAnswers, setHomeAnswers] = useState<Partial<Record<HomeQuestion, string>>>({});
+  const [headacheLocation, setHeadacheLocation] = useState<HeadacheLocation | "">("");
   const [medications, setMedications] = useState<MedItem[]>(
     DEFAULT_MEDICATIONS.map((m) => ({ ...m, taken: null }))
   );
@@ -248,7 +248,9 @@ export function PatientDailyCheckIn({
       parts.push(`Medications missed: ${missedMeds.map((m) => m.name).join(", ")}.`);
     }
 
-    return [...parts, ...writeHomeAnswers(homeAnswers), ...writeObservationDate(checkInDate)].join("\n");
+    return [...parts, ...writeHomeAnswers(homeAnswers),
+      ...writeHeadacheLocation(homeAnswers.headache === "Yes" ? headacheLocation : ""),
+      ...writeObservationDate(checkInDate)].join("\n");
   };
 
   // ── Submit ──────────────────────────────────────────────
@@ -319,6 +321,7 @@ export function PatientDailyCheckIn({
     setPainLevel(null);
     setSideEffects("");
     setHomeAnswers({});
+    setHeadacheLocation("");
     setCheckInDate(new Date().toISOString().split("T")[0]);
     setMedications(DEFAULT_MEDICATIONS.map((m) => ({ ...m, taken: null })));
     setSubmitted(false);
@@ -404,6 +407,12 @@ export function PatientDailyCheckIn({
                 <dd className="shrink-0 font-medium text-slate-900">{homeAnswers[key] || "No entry"}</dd>
               </div>
             ))}
+            {homeAnswers.headache === "Yes" && headacheLocation && (
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-slate-700">Headache location</dt>
+                <dd className="font-medium text-slate-900">{headacheLocation}</dd>
+              </div>
+            )}
           </dl>
         </section>
 
@@ -454,99 +463,25 @@ export function PatientDailyCheckIn({
         )}
       </div>
 
-      {/* ── Check-in Date ────────────────────────────────── */}
-      <div className="card">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-xs font-bold text-primary-300">
-            <FileText className="w-3.5 h-3.5" />
-          </div>
-          <h2 className="text-sm font-semibold text-slate-900">
-            Check-in Date
-          </h2>
-        </div>
-        <p className="text-xs text-clinical-muted mb-3">
-          Select the date for this check-in. Defaults to today.
-        </p>
+      <label className="workspace-panel flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-900">
+        Check-in date
         <input
           type="date"
+          name="check-in-date"
           value={checkInDate}
           onChange={(e) => setCheckInDate(e.target.value)}
           max={new Date().toISOString().split("T")[0]}
-          className="input text-sm w-full max-w-xs"
+          className="input min-h-11 w-auto max-w-full text-base"
         />
-      </div>
-
-      {/* ── Step 1: Voice Update ────────────────────────── */}
-      <div className="card">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-xs font-bold text-primary-300">
-            1
-          </div>
-          <h2 className="text-sm font-semibold text-slate-900">
-            Voice Update
-          </h2>
-          <span className="text-[10px] text-clinical-muted">Optional</span>
-        </div>
-
-        <p className="text-xs text-clinical-muted mb-4">
-          Tell us how you're feeling in your own words. Tap to record.
-        </p>
-
-        {/* Record button */}
-        <div className="flex items-center gap-4 mb-3">
-          <button
-            onClick={handleRecord}
-            className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-md flex-shrink-0 ${
-              isRecording
-                ? "bg-red-500 hover:bg-red-600 animate-pulse shadow-red-200"
-                : "bg-primary-600 hover:bg-primary-700 shadow-primary-200"
-            }`}
-          >
-            {isRecording ? (
-              <MicOff className="w-7 h-7 text-white" />
-            ) : (
-              <Mic className="w-7 h-7 text-white" />
-            )}
-          </button>
-
-          <div className="flex-1">
-            <p className="text-sm font-medium text-slate-700">
-              {isRecording
-                ? `Recording... ${recordingTime}s`
-                : audioFile
-                  ? "Recording saved"
-                  : "Tap to start recording"}
-            </p>
-            <p className="text-xs text-clinical-muted mt-0.5">
-              {isRecording
-                ? "Speak naturally, then tap again to stop"
-                : "Your message will be shared with your care team"}
-            </p>
-          </div>
-        </div>
-
-        {/* Transcript preview / manual input */}
-        {(transcript || !isRecording) && (
-          <textarea
-            value={transcript}
-            onChange={(e) => setTranscript(e.target.value)}
-            placeholder="Your words will appear here as you speak, or type your update..."
-            rows={3}
-            className="input resize-none text-sm"
-          />
-        )}
-      </div>
+      </label>
 
       {/* ── Step 2: Pain Level ──────────────────────────── */}
       <div className="card">
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-xs font-bold text-primary-300">
-            2
-          </div>
           <h2 className="text-sm font-semibold text-slate-900">
             Pain Level
           </h2>
-          <span className="text-[10px] text-red-500 font-medium">Required</span>
+          <span className="text-xs text-clinical-muted">Required</span>
         </div>
 
         <p className="text-xs text-clinical-muted mb-4">
@@ -558,6 +493,7 @@ export function PatientDailyCheckIn({
             <button
               key={opt.value}
               onClick={() => setPainLevel(opt.value)}
+              aria-pressed={painLevel === opt.value}
               className={`rounded-xl border-2 p-4 text-center transition-all duration-150 ${
                 painLevel === opt.value ? opt.activeColor : opt.color
               }`}
@@ -574,97 +510,6 @@ export function PatientDailyCheckIn({
         </div>
       </div>
 
-      {/* ── Step 3: Side Effects ────────────────────────── */}
-      <div className="card">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-xs font-bold text-primary-300">
-            3
-          </div>
-          <h2 className="text-sm font-semibold text-slate-900">
-            Side Effects
-          </h2>
-          <span className="text-[10px] text-clinical-muted">Optional</span>
-        </div>
-
-        <p className="text-xs text-clinical-muted mb-3">
-          Have you noticed any side effects? Describe anything unusual — nausea,
-          fatigue, dizziness, rashes, or other changes.
-        </p>
-
-        <textarea
-          value={sideEffects}
-          onChange={(e) => setSideEffects(e.target.value)}
-          placeholder="e.g., I've been feeling more tired than usual and had some nausea after my morning dose..."
-          rows={3}
-          className="input resize-none text-sm"
-        />
-      </div>
-
-      {/* ── Step 4: Medication Tracking ─────────────────── */}
-      <div className="card">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-xs font-bold text-primary-300">
-            4
-          </div>
-          <h2 className="text-sm font-semibold text-slate-900">
-            Medication
-          </h2>
-          <span className="text-[10px] text-red-500 font-medium">Required</span>
-        </div>
-
-        <p className="text-xs text-clinical-muted mb-4">
-          Did you take your medications today?
-        </p>
-
-        <div className="space-y-3">
-          {medications.map((med) => (
-            <div
-              key={med.id}
-              className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-clinical-card"
-            >
-              <Pill className="w-5 h-5 text-slate-400 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-slate-800">
-                  {med.name}
-                </div>
-                <div className="text-[11px] text-clinical-muted">
-                  {med.dosage}
-                </div>
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <button
-                  onClick={() => toggleMed(med.id, true)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    med.taken === true
-                      ? "bg-emerald-100 text-emerald-700 ring-2 ring-emerald-500/20"
-                      : "bg-slate-50 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 border border-slate-200"
-                  }`}
-                >
-                  Taken
-                </button>
-                <button
-                  onClick={() => toggleMed(med.id, false)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    med.taken === false
-                      ? "bg-red-100 text-red-700 ring-2 ring-red-500/20"
-                      : "bg-slate-50 text-slate-500 hover:bg-red-50 hover:text-red-600 border border-slate-200"
-                  }`}
-                >
-                  Missed
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {allMedsTaken && (
-          <div className="mt-3 flex items-center gap-2 text-xs font-medium text-emerald-600">
-            <CheckCircle2 className="w-4 h-4" />
-            All medications taken — great job!
-          </div>
-        )}
-      </div>
-
       <fieldset className="card">
         <legend className="section-title">Symptoms and daily life</legend>
         <p className="section-subtitle mb-3">Share what you noticed. You can leave any question unanswered.</p>
@@ -678,8 +523,152 @@ export function PatientDailyCheckIn({
               </select>
             </label>
           ))}
+          {homeAnswers.headache === "Yes" && <label className="text-sm text-slate-700">Where did your head hurt?
+            <select name="headache-location" className="input mt-1 min-h-11 text-base" value={headacheLocation}
+              onChange={(event) => setHeadacheLocation(headacheLocations.find((location) => location === event.target.value) ?? "")}>
+              <option value="">Not entered</option>
+              {headacheLocations.map((location) => <option key={location}>{location}</option>)}
+            </select>
+          </label>}
         </div>
       </fieldset>
+      <details className="workspace-panel" onToggle={(event) => {
+        if (isRecording && !event.currentTarget.open) event.currentTarget.open = true;
+      }}>
+        <summary className="workspace-disclosure">Add more details</summary>
+        <div className="space-y-2">
+          {/* ── Step 1: Voice Update ────────────────────────── */}
+          <details className="workspace-panel" onToggle={(event) => {
+            if (isRecording && !event.currentTarget.open) event.currentTarget.open = true;
+          }}>
+            <summary className="workspace-disclosure">Add a voice or written update</summary>
+
+            <p className="text-xs text-clinical-muted mb-4">
+              Tell us how you're feeling in your own words. Tap to record.
+            </p>
+
+            {/* Record button */}
+            <div className="flex items-center gap-4 mb-3">
+              <button
+                onClick={handleRecord}
+                aria-label={isRecording ? "Stop recording" : "Start recording"}
+                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-md flex-shrink-0 ${
+                  isRecording
+                    ? "bg-red-500 hover:bg-red-600 animate-pulse shadow-red-200"
+                    : "bg-primary-600 hover:bg-primary-700 shadow-primary-200"
+                }`}
+              >
+                {isRecording ? (
+                  <MicOff className="w-7 h-7 text-white" />
+                ) : (
+                  <Mic className="w-7 h-7 text-white" />
+                )}
+              </button>
+
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-700">
+                  {isRecording
+                    ? `Recording... ${recordingTime}s`
+                    : audioFile
+                      ? "Recording saved"
+                      : "Tap to start recording"}
+                </p>
+                <p className="text-xs text-clinical-muted mt-0.5">
+                  {isRecording
+                    ? "Speak naturally, then tap again to stop"
+                    : "Your message will be shared with your care team"}
+                </p>
+              </div>
+            </div>
+
+            {/* Transcript preview / manual input */}
+            {(transcript || !isRecording) && (
+              <textarea
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                placeholder="Your words will appear here as you speak, or type your update..."
+                rows={3}
+                className="input resize-none text-sm"
+              />
+            )}
+          </details>
+
+          {/* ── Step 3: Side Effects ────────────────────────── */}
+          <details className="workspace-panel">
+            <summary className="workspace-disclosure">Report side effects</summary>
+
+            <p className="text-xs text-clinical-muted mb-3">
+              Have you noticed any side effects? Describe anything unusual — nausea,
+              fatigue, dizziness, rashes, or other changes.
+            </p>
+
+            <textarea
+              value={sideEffects}
+              onChange={(e) => setSideEffects(e.target.value)}
+              placeholder="e.g., I've been feeling more tired than usual and had some nausea after my morning dose..."
+              rows={3}
+              className="input resize-none text-sm"
+            />
+          </details>
+
+          {/* ── Step 4: Medication Tracking ─────────────────── */}
+          <details className="workspace-panel">
+            <summary className="workspace-disclosure">Log medication</summary>
+
+            <p className="text-xs text-clinical-muted mb-4">
+              Did you take your medications today?
+            </p>
+
+            <div className="space-y-3">
+              {medications.map((med) => (
+                <div
+                  key={med.id}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-clinical-card"
+                >
+                  <Pill className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-slate-800">
+                      {med.name}
+                    </div>
+                    <div className="text-[11px] text-clinical-muted">
+                      {med.dosage}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => toggleMed(med.id, true)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        med.taken === true
+                          ? "bg-emerald-100 text-emerald-700 ring-2 ring-emerald-500/20"
+                          : "bg-slate-50 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 border border-slate-200"
+                      }`}
+                    >
+                      Taken
+                    </button>
+                    <button
+                      onClick={() => toggleMed(med.id, false)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        med.taken === false
+                          ? "bg-red-100 text-red-700 ring-2 ring-red-500/20"
+                          : "bg-slate-50 text-slate-500 hover:bg-red-50 hover:text-red-600 border border-slate-200"
+                      }`}
+                    >
+                      Missed
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {allMedsTaken && (
+              <div className="mt-3 flex items-center gap-2 text-xs font-medium text-emerald-600">
+                <CheckCircle2 className="w-4 h-4" />
+                All medications taken — great job!
+              </div>
+            )}
+          </details>
+        </div>
+      </details>
       <button
         onClick={handleSubmit}
         disabled={!painLevel || isSubmitting}

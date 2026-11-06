@@ -1,4 +1,5 @@
 import type { Patient, CheckIn, Alert, AiAnalysis, Symptom } from "@trialpulse/types";
+import { checkInObservationDate, checkInReportedPain } from "@/lib/home-tracker";
 
 // ============================================================
 // Types
@@ -66,7 +67,7 @@ function normalizeCheckIns(checkins: CheckIn[]): TimelineEvent[] {
         : ci.transcript,
       metadata: {
         fullTranscript: ci.transcript,
-        maxPain,
+        maxPain: checkInReportedPain(ci),
         symptoms: symptomStr,
         hasAudio: !!ci.audioUrl,
         dropoutRisk: analysis?.dropoutRisk,
@@ -249,19 +250,14 @@ export function buildPatientTimeline(
 export interface PainDataPoint {
   date: string;
   maxPain: number;
-  dropoutRisk: number;
 }
 
 export function getPainTrend(checkins: CheckIn[], patientId: string): PainDataPoint[] {
   return checkins
-    .filter((c) => c.patientId === patientId && c.analysis)
-    .sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    )
-    .map((c) => ({
-      date: c.timestamp,
-      maxPain: Math.max(...c.analysis!.symptoms.map((s) => s.severity), 0),
-      dropoutRisk: Math.round(c.analysis!.dropoutRisk * 100),
-    }));
+    .filter((entry) => entry.patientId === patientId)
+    .flatMap((entry) => {
+      const pain = checkInReportedPain(entry);
+      return pain === undefined ? [] : [{ date: checkInObservationDate(entry), maxPain: pain }];
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
 }

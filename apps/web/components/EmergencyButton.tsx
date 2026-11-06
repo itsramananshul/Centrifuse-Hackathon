@@ -70,15 +70,15 @@ export function EmergencyButton({ patientId }: { patientId: string }) {
 
       {/* ── Confirmation Modal ─────────────────────────────── */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4">
-          <div className="bg-clinical-card rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="emergency-dialog-title" className="workspace-panel max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto !p-0 shadow-2xl">
             {/* ── Success State ─────────────────────────── */}
             {submitted ? (
               <div className="p-8 text-center">
                 <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 flex items-center justify-center mb-4">
                   <CheckCircle2 className="w-8 h-8 text-emerald-600" />
                 </div>
-                <h2 className="text-lg font-bold text-slate-900 mb-2">
+                <h2 id="emergency-dialog-title" className="text-lg font-bold text-slate-900 mb-2">
                   Alert Sent
                 </h2>
                 <p className="text-sm text-slate-600 leading-relaxed">
@@ -94,12 +94,13 @@ export function EmergencyButton({ patientId }: { patientId: string }) {
                     <AlertTriangle className="w-5 h-5 text-red-600" />
                   </div>
                   <div className="flex-1">
-                    <h2 className="text-lg font-bold text-slate-900">
+                    <h2 id="emergency-dialog-title" className="text-lg font-bold text-slate-900">
                       Send Emergency Alert?
                     </h2>
                   </div>
                   <button
                     onClick={handleClose}
+                    aria-label="Close emergency alert"
                     className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors"
                   >
                     <X className="w-4 h-4" />

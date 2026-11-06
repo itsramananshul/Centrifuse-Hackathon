@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { Patient, CheckIn, Alert } from "@trialpulse/types";
 import { api } from "@/lib/api";
+import { isPracticePatient } from "@/lib/visit-review";
 import {
   PatientStatusBadge,
   SeverityBadge,
@@ -43,7 +44,7 @@ export default function PatientDetailPage() {
       const [p, c, a] = await Promise.all([
         api.getPatient(id),
         api.getPatientCheckIns(id),
-        api.getAlerts().then((all) => all.filter((a) => a.patientId === id)),
+        api.getPatientAlerts(id),
       ]);
       setPatient(p);
       setCheckins(c);
@@ -112,14 +113,15 @@ export default function PatientDetailPage() {
 
   const latestCheckIn = checkins[checkins.length - 1];
   const analysis = latestCheckIn?.analysis;
+  const practice = isPracticePatient(patient);
   const unacknowledgedAlerts = alerts.filter((a) => !a.acknowledged);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="mx-auto max-w-5xl space-y-4">
       {/* Back link */}
       <Link
         href="/dashboard"
-        className="inline-flex items-center gap-1.5 text-sm text-clinical-muted hover:text-slate-700 transition-colors"
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm text-primary-300 hover:underline"
       >
         <ArrowLeft className="w-4 h-4" />
         Dashboard
@@ -127,13 +129,13 @@ export default function PatientDetailPage() {
 
       {/* Patient Header */}
       <div className="card">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="workspace-mark size-12">
               <User className="w-6 h-6 text-primary-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              <h1 className="break-words text-2xl font-bold text-slate-900 tracking-tight">
                 {patient.name}
               </h1>
               <p className="text-sm text-clinical-muted">{patient.condition}</p>
@@ -149,7 +151,9 @@ export default function PatientDetailPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <PatientStatusBadge status={patient.status} />
-            <Link href={"/patient/" + id + "/review"} className="btn-secondary inline-flex items-center text-sm">Visit review</Link>
+            {practice && <span className="badge-neutral">Fictional practice data</span>}
+            <Link href={"/patient/" + id + "/review"} className="btn-primary inline-flex min-h-11 items-center text-sm">Visit review</Link>
+            {patient.userId && <Link href={"/messages?with=" + encodeURIComponent(patient.userId)} className="btn-secondary inline-flex min-h-11 items-center text-sm">Message patient</Link>}
           </div>
         </div>
       </div>
@@ -205,6 +209,8 @@ export default function PatientDetailPage() {
             </p>
           </div>
 
+          <details>
+          <summary className="workspace-disclosure">Analysis details</summary>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h3 className="text-[11px] font-semibold text-clinical-muted uppercase tracking-wider mb-3">
@@ -250,8 +256,9 @@ export default function PatientDetailPage() {
               {analysis.recommendedAction}
             </p>
           </div>
+          </details>
         </div>
-      ) : (
+      ) : !practice && (
         <div className="card">
           <EmptyState
             icon={FileText}
@@ -265,9 +272,6 @@ export default function PatientDetailPage() {
           />
         </div>
       )}
-
-      {/* Medication Scanner */}
-      <MedicationScanner />
 
       {/* Check-in History */}
       <div className="card">
@@ -284,31 +288,35 @@ export default function PatientDetailPage() {
         ) : (
           <div className="space-y-3">
             {[...checkins].reverse().map((ci) => (
-              <div
+              <details
                 key={ci.id}
                 className="p-3 rounded-lg bg-slate-50/80 border border-slate-100"
               >
-                <div className="flex items-center justify-between mb-1.5">
+                <summary className="workspace-disclosure">
                   <span className="text-sm font-medium text-slate-700">
                     {new Date(ci.timestamp).toLocaleString()}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <span className="ml-2 inline-flex flex-wrap items-center gap-2">
                     {ci.analysis?.adverseEvent && (
                       <span className="badge-danger">Adverse Event</span>
                     )}
                     {ci.audioUrl && (
                       <span className="badge-neutral">Audio</span>
                     )}
-                  </div>
-                </div>
-                <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
+                  </span>
+                </summary>
+                <p className="whitespace-pre-wrap break-words text-sm text-slate-600 leading-relaxed">
                   {ci.transcript}
                 </p>
-              </div>
+              </details>
             ))}
           </div>
         )}
       </div>
+      <details className="workspace-panel">
+        <summary className="workspace-disclosure">Medication scanner</summary>
+        <MedicationScanner />
+      </details>
     </div>
   );
 }

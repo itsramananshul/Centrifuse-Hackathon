@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import Link from "next/link";
 import type { CheckIn, Alert } from "@trialpulse/types";
 import type { RiskScoredPatient } from "@/lib/risk-scoring";
 import { buildPatientTimeline, getPainTrend } from "@/lib/patient-timeline";
@@ -12,6 +13,7 @@ import { PatientTimeline } from "@/components/PatientTimeline";
 import { CommunicationPanel } from "@/components/CommunicationPanel";
 import { EmptyState } from "@/components/EmptyState";
 import { SyntheticBadge } from "@/components/SimulationPanel";
+import { comparison, fromExistingPatient, isPracticePatient, measures, summarize } from "@/lib/visit-review";
 import {
   User,
   Calendar,
@@ -75,6 +77,12 @@ export function PatientDetailPanel({
     scored;
 
   const unacknowledgedAlerts = alerts.filter((a) => !a.acknowledged);
+  const practice = isPracticePatient(patient);
+  const practiceComparison = useMemo(() => {
+    if (!practice) return null;
+    const record = fromExistingPatient(patient, checkins.filter((entry) => entry.patientId === patient.id));
+    return comparison(record.records, record.milestones[0].day, record.comparisonWidth ?? 5);
+  }, [practice, patient, checkins]);
 
   // ── Timeline ────────────────────────────────────────────
   const timelineEvents = useMemo(
@@ -94,7 +102,7 @@ export function PatientDetailPanel({
   );
 
   return (
-    <div className="space-y-5 overflow-y-auto">
+    <div className="space-y-4">
       {/* ── Patient Header ─────────────────────────────── */}
       <div className={`rounded-xl border p-4 ${tierHeaderBg[riskTier]}`}>
         <div className="flex items-start gap-3">
@@ -107,7 +115,8 @@ export function PatientDetailPanel({
                 {patient.name}
               </h2>
               {isSynthetic && <SyntheticBadge />}
-              <div className="flex items-center gap-1.5">
+              {practice && <span className="badge-neutral">Fictional practice data</span>}
+              {!practice && <div className="flex items-center gap-1.5">
                 <span
                   className={`w-2 h-2 rounded-full ${tierDot[riskTier]}`}
                 />
@@ -117,12 +126,12 @@ export function PatientDetailPanel({
                 <span className="text-xs text-clinical-muted tabular-nums">
                   ({compositeScore})
                 </span>
-              </div>
+              </div>}
             </div>
             <p className="text-sm text-clinical-muted mt-0.5">
               {patient.condition} &middot; Age {patient.age}
             </p>
-            <div className="flex items-center gap-3 mt-1.5 text-xs text-clinical-muted">
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-clinical-muted">
               <span>{patient.trialId}</span>
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
@@ -139,6 +148,11 @@ export function PatientDetailPanel({
             <InsightChip key={i} label={chip.label} variant={chip.variant} />
           ))}
         </div>
+        {!isSynthetic && <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Link href={"/patient/" + encodeURIComponent(patient.id) + "/review"} className="btn-primary inline-flex min-h-11 items-center text-sm">Visit review</Link>
+          <Link href={"/patient/" + encodeURIComponent(patient.id)} className="btn-secondary inline-flex min-h-11 items-center text-sm">Full patient record</Link>
+          {patient.userId && <Link href={"/messages?with=" + encodeURIComponent(patient.userId)} className="btn-secondary inline-flex min-h-11 items-center text-sm">Message patient</Link>}
+        </div>}
       </div>
 
       {/* ── Emergency Alerts ───────────────────────────── */}
@@ -179,7 +193,30 @@ export function PatientDetailPanel({
         </div>
       )}
 
-      {/* ── Dropout Prediction ─────────────────────────── */}
+      {practiceComparison && <section className="workspace-panel" aria-labelledby="practice-summary">
+        <h3 id="practice-summary" className="section-title">What changed over 10 days</h3>
+        <p className="mt-1 text-sm text-clinical-muted">Compare five days before and after the example care-plan change.</p>
+        <dl className="mt-3 space-y-2 text-sm">
+          {(["cough", "activity"] as const).map((metric) => {
+            const before = summarize(practiceComparison.before, metric);
+            const after = summarize(practiceComparison.after, metric);
+            return <div key={metric} className="flex flex-wrap justify-between gap-1">
+              <dt className="text-slate-700">{measures[metric].label}</dt>
+              <dd className="font-medium tabular-nums text-slate-900">{before.positive}/{before.logged} → {after.positive}/{after.logged} reported days</dd>
+            </div>;
+          })}
+        </dl>
+        <p className="mt-3 text-sm text-clinical-muted">Open Visit review for missing days, the original check-ins, and follow-up questions.</p>
+      </section>}
+      {!practice && analysis?.summary && <section className="workspace-panel">
+        <h3 className="section-title">Latest AI summary</h3>
+        <p className="mt-2 break-words text-sm text-slate-700">{analysis.summary}</p>
+      </section>}
+
+      <PatientTimeline events={timelineEvents} painTrend={painTrend} />
+      {!practice && <details className="workspace-panel">
+      <summary className="workspace-disclosure">Analysis and risk details</summary>
+      <div className="space-y-3">
       <DropoutRiskCard prediction={dropoutPrediction} />
 
       {/* ── AI Clinical Summary ────────────────────────── */}
@@ -249,17 +286,18 @@ export function PatientDetailPanel({
           />
         </div>
       )}
+      </div>
+      </details>}
 
-      {/* ── Communication ─────────────────────────────── */}
+      {!practice && <details className="workspace-panel">
+      <summary className="workspace-disclosure">Simulated follow-up</summary>
       <CommunicationPanel
         scored={scored}
         checkins={checkins}
         alerts={alerts}
         dropoutPrediction={dropoutPrediction}
       />
-
-      {/* ── Patient Timeline ───────────────────────────── */}
-      <PatientTimeline events={timelineEvents} painTrend={painTrend} />
+      </details>}
     </div>
   );
 }

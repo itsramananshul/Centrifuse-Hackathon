@@ -7,13 +7,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard,
+  ArrowUpRight,
+  Compass,
+  House,
+  Settings,
+  Users,
   Mic,
-  Activity,
   LogOut,
-  User,
   Menu,
   X,
-  ShieldCheck,
   Pill,
   Shield,
   Search,
@@ -22,10 +24,10 @@ import {
 } from "lucide-react";
 
 const clinicianNav = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/checkin", label: "New Check-in", icon: Mic },
+  { href: "/dashboard", label: "Overview", icon: House },
+  { href: "/dashboard#patient-roster", label: "Patients", icon: Users },
   { href: "/messages", label: "Messages", icon: MessageSquare },
-  { href: "/settings", label: "Settings", icon: ShieldCheck },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 const patientNav = [
@@ -33,7 +35,7 @@ const patientNav = [
   { href: "/medication-scan", label: "Medication Scanner", icon: Pill },
   { href: "/messages", label: "Messages", icon: MessageSquare },
   { href: "/browse", label: "Browse Diseases", icon: Search },
-  { href: "/settings", label: "Settings", icon: ShieldCheck },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 const superNav = [
@@ -42,7 +44,7 @@ const superNav = [
   { href: "/dashboard", label: "Doctor Dashboard", icon: LayoutDashboard },
   { href: "/checkin", label: "New Check-in", icon: Mic },
   { href: "/messages", label: "Messages", icon: MessageSquare },
-  { href: "/settings", label: "Settings", icon: ShieldCheck },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar({ role }: { role: "patient" | "clinician" | "super" }) {
@@ -99,30 +101,16 @@ export function Sidebar({ role }: { role: "patient" | "clinician" | "super" }) {
 
   const sidebarContent = (
     <>
-      {/* Logo */}
-      <div className="px-4 pb-4 pt-5">
-        <div className="flex items-center gap-3">
-          <div className="workspace-mark size-9">
-            <Activity className="size-5" aria-hidden="true" />
-          </div>
-          <div>
-            <p className="text-sm font-bold tracking-tight text-slate-900">
-              {APP_NAME}
-            </p>
-            <p className="text-[11px] text-clinical-muted">
-              {role === "patient" ? "Patient Portal" : role === "super" ? "Command Center" : "Doctor Dashboard"}
-            </p>
-          </div>
-        </div>
-      </div>
+      <Link href={role === "patient" ? "/checkin" : role === "super" ? "/super" : "/dashboard"} className="flex min-h-14 items-center gap-2 px-4 py-3 text-slate-900 sm:px-6" translate="no">
+        <Compass className="size-6 shrink-0 text-primary-700" strokeWidth={1.5} aria-hidden="true" />
+        <span className="font-[family-name:var(--display-font)] text-xl tracking-tight">{APP_NAME}</span>
+      </Link>
 
-      {/* Navigation */}
-      <nav aria-label="Main navigation" className="flex-1 p-3 space-y-0.5">
-        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-clinical-muted">Workspace</p>
+      <nav aria-label="Main navigation" className="flex-1 space-y-1 px-3 pt-5">
         {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
-            (item.href !== "/" && pathname.startsWith(item.href));
+            (item.href === "/dashboard#patient-roster" && pathname.startsWith("/patient/"));
           const Icon = item.icon;
 
           return (
@@ -131,13 +119,13 @@ export function Sidebar({ role }: { role: "patient" | "clinician" | "super" }) {
               href={item.href}
               aria-current={isActive ? "page" : undefined}
               onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+              className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 font-[family-name:var(--display-font)] text-base transition-colors duration-150 ${
                 isActive
-                  ? "bg-primary-100 text-primary-300 ring-1 ring-inset ring-primary-200"
+                  ? "bg-primary-100 font-semibold text-primary-700"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
-              <Icon className="w-[18px] h-[18px]" />
+              <Icon className="size-[18px] shrink-0" strokeWidth={1.55} aria-hidden="true" />
               {item.label}
             </Link>
           );
@@ -145,17 +133,19 @@ export function Sidebar({ role }: { role: "patient" | "clinician" | "super" }) {
       </nav>
 
       {/* User Footer */}
-      <div className="p-3 border-t border-clinical-border">
+      <div className="space-y-1 px-3 pb-4">
         {displayName && (
           <div className="flex items-center gap-2 px-3 py-2 mb-2">
-            <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-              <User className="w-3.5 h-3.5 text-primary-400" />
-            </div>
+            <span className="initials-badge size-8" aria-hidden="true">{displayName.split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase()}</span>
             <span className="text-sm font-medium text-slate-700 truncate">
               {displayName}
             </span>
           </div>
         )}
+        {role !== "patient" && <a href="/dashboard#advanced-tools" onClick={() => setMobileOpen(false)}
+          className="flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-slate-700 underline-offset-4 hover:bg-slate-100 hover:underline">
+          Advanced tools <ArrowUpRight size={14} aria-hidden="true" />
+        </a>}
         <button
           onClick={handleSignOut}
           className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"

@@ -65,12 +65,12 @@ function PainSparkline({ data }: { data: PainDataPoint[] }) {
 
   const lastPain = data[data.length - 1].maxPain;
   const strokeColor =
-    lastPain >= 7 ? "#fa8088" : lastPain >= 4 ? "#f0a466" : "#69d6a6";
+    lastPain >= 7 ? "#bf4b59" : lastPain >= 4 ? "#aa5d2a" : "#31714d";
   const fillColor =
-    lastPain >= 7 ? "#6a3038" : lastPain >= 4 ? "#694224" : "#295c48";
+    lastPain >= 7 ? "#f4dce0" : lastPain >= 4 ? "#f4e3d5" : "#dce9de";
 
   const chartData = data.map((d) => ({
-    date: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    date: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
     pain: d.maxPain,
   }));
 
@@ -81,7 +81,7 @@ function PainSparkline({ data }: { data: PainDataPoint[] }) {
           <AreaChart data={chartData} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
             <YAxis domain={[0, 10]} hide />
             <Tooltip
-              contentStyle={{ fontSize: 10, borderRadius: 6, backgroundColor: "#171819", color: "#f4f5f5", border: "1px solid #303234", padding: "4px 8px" }}
+              contentStyle={{ fontSize: 10, borderRadius: 6, backgroundColor: "#ffffff", color: "var(--chart-ink)", border: "1px solid var(--chart-grid)", padding: "4px 8px" }}
               formatter={(value: number) => [`${value}/10`, "Pain"]}
             />
             <Area
@@ -217,6 +217,7 @@ export function PatientTimeline({
   painTrend: PainDataPoint[];
 }) {
   const [filter, setFilter] = useState<TimelineEventType | "all">("all");
+  const [visibleCount, setVisibleCount] = useState(5);
 
   const filteredEvents =
     filter === "all" ? events : events.filter((e) => e.type === filter);
@@ -232,7 +233,7 @@ export function PatientTimeline({
         {painTrend.length >= 2 && (
           <div>
             <div className="text-[10px] text-clinical-muted mb-0.5 text-right">
-              Pain trend
+              Reported pain
             </div>
             <PainSparkline data={painTrend} />
           </div>
@@ -249,8 +250,9 @@ export function PatientTimeline({
           return (
             <button
               key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors flex-shrink-0 ${
+              onClick={() => { setFilter(f.key); setVisibleCount(5); }}
+              aria-pressed={filter === f.key}
+              className={`min-h-11 px-2.5 rounded-lg text-xs font-medium transition-colors flex-shrink-0 ${
                 filter === f.key
                   ? "bg-primary-100 text-primary-300"
                   : "bg-slate-50 text-slate-500 hover:bg-slate-100"
@@ -278,9 +280,10 @@ export function PatientTimeline({
         />
       ) : (
         <div>
-          {filteredEvents.map((event) => (
+          {filteredEvents.slice(0, visibleCount).map((event) => (
             <TimelineEventCard key={event.id} event={event} />
           ))}
+          {filteredEvents.length > visibleCount && <button type="button" className="btn-secondary min-h-11 text-sm" onClick={() => setVisibleCount((count) => count + 5)}>Show older events</button>}
         </div>
       )}
     </div>

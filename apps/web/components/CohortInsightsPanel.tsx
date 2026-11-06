@@ -13,10 +13,10 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 // ── Donut chart for risk distribution ───────────────────────
 
 const RISK_COLORS = {
-  Critical: "#fa8088",
-  High: "#f0a466",
-  Medium: "#83aff1",
-  Low: "#69d6a6",
+  Critical: "#bf4b59",
+  High: "#aa5d2a",
+  Medium: "#537aab",
+  Low: "#31714d",
 };
 
 function RiskDistributionChart({
@@ -58,7 +58,7 @@ function RiskDistributionChart({
               ))}
             </Pie>
             <Tooltip
-              contentStyle={{ fontSize: 11, borderRadius: 8, backgroundColor: "#171819", color: "#f4f5f5", border: "1px solid #303234" }}
+              contentStyle={{ fontSize: 11, borderRadius: 8, backgroundColor: "#ffffff", color: "var(--chart-ink)", border: "1px solid var(--chart-grid)" }}
             />
           </PieChart>
         </ResponsiveContainer>
@@ -100,7 +100,7 @@ function ProgressCircle({
           cy="32"
           r={radius}
           fill="none"
-          stroke="#303234"
+          stroke="var(--chart-grid)"
           strokeWidth="5"
         />
         <circle
@@ -189,10 +189,10 @@ export function CohortInsightsPanel({
             value={metrics.adherenceRate}
             color={
               metrics.adherenceRate >= 80
-                ? "#69d6a6"
+                ? "#31714d"
                 : metrics.adherenceRate >= 50
-                  ? "#f0a466"
-                  : "#fa8088"
+                  ? "#aa5d2a"
+                  : "#bf4b59"
             }
           />
           <div className="mt-2">
@@ -207,10 +207,10 @@ export function CohortInsightsPanel({
             value={metrics.engagementStats.participationRate}
             color={
               metrics.engagementStats.participationRate >= 80
-                ? "#69d6a6"
+                ? "#31714d"
                 : metrics.engagementStats.participationRate >= 50
-                  ? "#f0a466"
-                  : "#fa8088"
+                  ? "#aa5d2a"
+                  : "#bf4b59"
             }
           />
           <div className="mt-2">
@@ -225,10 +225,10 @@ export function CohortInsightsPanel({
             value={100 - metrics.adverseEventRate}
             color={
               metrics.adverseEventRate <= 10
-                ? "#69d6a6"
+                ? "#31714d"
                 : metrics.adverseEventRate <= 30
-                  ? "#f0a466"
-                  : "#fa8088"
+                  ? "#aa5d2a"
+                  : "#bf4b59"
             }
           />
           <div className="mt-2">

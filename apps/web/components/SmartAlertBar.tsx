@@ -41,9 +41,11 @@ const severityBg: Record<SmartAlertSeverity, string> = {
 export function SmartAlertBar({
   alerts,
   onAlertClick,
+  stacked = false,
 }: {
   alerts: SmartAlert[];
   onAlertClick: (patientId: string) => void;
+  stacked?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -64,14 +66,14 @@ export function SmartAlertBar({
           {alerts.length}
         </span>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1 flex-wrap">
+      <div className={"flex flex-wrap gap-2 pb-1 " + (stacked ? "flex-col" : "overflow-x-auto")}>
         {visible.map((alert) => {
           const Icon = typeIcon[alert.type];
           return (
             <button
               key={alert.id}
               onClick={() => onAlertClick(alert.patientId)}
-              className={`flex-shrink-0 flex items-start gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-150 cursor-pointer min-w-[220px] max-w-[280px] ${severityBg[alert.severity]}`}
+              className={`flex shrink-0 items-start gap-2 rounded-lg border px-3 py-2 text-left transition-colors duration-150 ${stacked ? "w-full min-w-0" : "min-w-[220px] max-w-[280px]"} ${severityBg[alert.severity]}`}
             >
               {/* Severity dot + label + icon */}
               <div className="flex items-center gap-1.5 mt-0.5 flex-shrink-0">

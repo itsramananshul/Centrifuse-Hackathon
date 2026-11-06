@@ -1,15 +1,15 @@
 import type { CheckIn, Patient } from "@trialpulse/types";
-import { checkInObservationDate, questionsFor, readHomeAnswers } from "@/lib/home-tracker";
+import { checkInObservationDate, checkInReportedPain, questionsFor, readHeadacheLocation, readHomeAnswers, type HeadacheLocation } from "@/lib/home-tracker";
 
 export const measures = {
-  cough: { label: "Night cough", unit: "", kind: "yes-no", color: "#79dcb5" },
-  activity: { label: "Activity limited", unit: "", kind: "yes-no", color: "#bc9afa" },
-  lung: { label: "FEV₁", unit: "L", kind: "number", color: "#86aff4" },
-  medication: { label: "Medication missed", unit: "", kind: "yes-no", color: "#efa567" },
-  headache: { label: "Headache", unit: "", kind: "yes-no", color: "#79dcb5" },
-  school: { label: "School missed", unit: "", kind: "yes-no", color: "#bc9afa" },
-  pain: { label: "Pain", unit: "/10", kind: "number", color: "#efa567" },
-  checkin: { label: "Check-in", unit: "", kind: "yes-no", color: "#79dcb5" },
+  cough: { label: "Night cough", unit: "", kind: "yes-no", color: "#23704c" },
+  activity: { label: "Activity limited", unit: "", kind: "yes-no", color: "#537aab" },
+  lung: { label: "FEV₁", unit: "L", kind: "number", color: "#47668e" },
+  medication: { label: "Medication missed", unit: "", kind: "yes-no", color: "#a45c2d" },
+  headache: { label: "Headache", unit: "", kind: "yes-no", color: "#23704c" },
+  school: { label: "School missed", unit: "", kind: "yes-no", color: "#537aab" },
+  pain: { label: "Pain", unit: "/10", kind: "number", color: "#a45c2d" },
+  checkin: { label: "Check-in", unit: "", kind: "yes-no", color: "#23704c" },
 } as const;
 
 export type Measure = keyof typeof measures;
@@ -20,13 +20,14 @@ export function metricText(metric: Measure, amount: number) {
   return value + " " + measure.unit;
 }
 
-export type RecordSource = "Caregiver" | "Patient" | "Simulated spirometer" | "Check-in";
+export type RecordSource = "Caregiver" | "Patient" | "Simulated spirometer" | "Check-in" | "Fictional check-in";
 export type Observation = {
   id: string;
   day: string;
   recordedAt?: string;
   source: RecordSource;
   detail: string;
+  headacheLocation?: HeadacheLocation;
   values: Partial<Record<Measure, number>>;
 };
 export type Milestone = { day: string; label: string };
@@ -41,6 +42,8 @@ export type ReviewCase = {
   age: number;
   condition: string;
   synthetic: boolean;
+  practiceCase?: boolean;
+  comparisonWidth?: number;
   recipientId?: string;
   lastVisit?: string;
   start: string;
@@ -88,6 +91,10 @@ export function makeDays(start: string, end: string, records: Observation[]) {
 
 export type ReviewDay = ReturnType<typeof makeDays>[number];
 
+export function hasHomeReport(day: ReviewDay) {
+  return day.entries.some((entry) => entry.source !== "Simulated spirometer");
+}
+
 export function summarize(days: ReviewDay[], measure: Measure) {
   const values = days.flatMap(({ values }) => values[measure] === undefined ? [] : [values[measure]]);
   const sum = values.reduce((total, value) => total + value, 0);
@@ -126,9 +133,8 @@ export function reviewQueue(cases: ReviewCase[]) {
     // Count completed days in the real queue and use the full simulated date range in the demo.
     const through = patient.synthetic ? patient.end : shiftDay(patient.end, -1);
     const week = makeDays(shiftDay(through, -6), through, patient.records);
-    const hasHomeEntry = (day: ReviewDay) => day.entries.some((entry) => entry.source !== "Simulated spirometer");
-    const logged = week.filter(hasHomeEntry).length;
-    const trailingGap = week.slice(-3).every((day) => !hasHomeEntry(day));
+    const logged = week.filter(hasHomeReport).length;
+    const trailingGap = week.slice(-3).every((day) => !hasHomeReport(day));
     const gap = patient.records.some((entry) => entry.source !== "Simulated spirometer") && trailingGap;
     const anchor = patient.milestones[0]?.day ?? shiftDay(through, -6);
     const periods = comparison(patient.records, anchor, 7);
@@ -159,33 +165,41 @@ export function pairReportedDays(days: ReviewDay[], signal: Measure, outcome: Me
   return { pairs, possible };
 }
 
+export function isPracticePatient(patient: Patient) {
+  return patient.id === "8f2de90f-719d-4ca2-9f91-71867dcb9d3e" && patient.trialId === "HEALTHGPS-DEMO-ASTHMA";
+}
+
 export function fromExistingPatient(patient: Patient, checkins: CheckIn[]): ReviewCase {
-  const end = new Date().toISOString().slice(0, 10);
+  const practiceCase = isPracticePatient(patient);
+  const firstDay = practiceCase ? patient.enrolledAt.slice(0, 10) : undefined;
+  const end = firstDay ? shiftDay(firstDay, 9) : new Date().toISOString().slice(0, 10);
+  const conditionMeasures = questionsFor(patient.condition);
   return {
     id: patient.id,
     name: patient.name,
     age: patient.age,
     condition: patient.condition,
     synthetic: false,
+    practiceCase,
     recipientId: patient.userId,
-    start: shiftDay(end, -13),
+    lastVisit: firstDay,
+    start: firstDay ?? shiftDay(end, -13),
     end,
-    measures: [...questionsFor(patient.condition), "medication", "checkin", "pain"],
-    defaults: [...questionsFor(patient.condition).slice(0, 2), "pain"],
-    milestones: [],
+    measures: [...conditionMeasures, "medication", "checkin", "pain"],
+    defaults: [...conditionMeasures.slice(0, 2), ...(practiceCase ? [] : ["pain" as const])],
+    comparisonWidth: practiceCase ? 5 : undefined,
+    milestones: firstDay ? [{ day: shiftDay(firstDay, 5), label: "Example care-plan change" }] : [],
     records: checkins.flatMap((entry) => {
       const day = checkInObservationDate(entry);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(Date.parse(day))) return [];
-      const pain = entry.painLevel?.trim();
-      const scores: Record<string, number> = { normal: 1, mild: 4, high: 7, very_high: 9 };
-      const painLine = entry.transcript.split("\n").findLast((line) => /^Pain level: .+ \(\d+\/10\)\.$/.test(line));
-      const storedPain = painLine?.match(/\((\d+)\/10\)\.$/)?.[1];
-      const number = pain ? scores[pain] ?? Number(pain) : Number(storedPain);
+      const pain = checkInReportedPain(entry);
       const missed = /^Medications missed: /m.test(entry.transcript);
+      const homeAnswers = readHomeAnswers(entry.transcript);
       return [{
-        id: entry.id, day, recordedAt: entry.timestamp, source: "Check-in",
+        id: entry.id, day, recordedAt: entry.timestamp, source: practiceCase ? "Fictional check-in" : "Check-in",
         detail: entry.transcript,
-        values: { checkin: 1, ...readHomeAnswers(entry.transcript), ...(missed ? { medication: 1 } : {}), ...(Number.isFinite(number) && number >= 0 && number <= 10 ? { pain: number } : {}) },
+        headacheLocation: homeAnswers.headache === 1 ? readHeadacheLocation(entry.transcript) : undefined,
+        values: { checkin: 1, ...homeAnswers, ...(missed ? { medication: 1 } : {}), ...(pain === undefined ? {} : { pain }) },
       }];
     }),
   };
@@ -221,9 +235,10 @@ const asthmaRecords: Observation[] = [
   })),
 ];
 
-const headacheHome = [
-  [0, 1, 0, 4], [1, 1, 1, 6], [2, 0, 0, 0], [3, 1, 0, 3], [4, 1, 0, 5],
-  [5, 1, 0, 4], [6, 0, 0, 0], [7, 0, 0, 0], [8, 0, 1, 0], [9, 1, 1, 3], [11, 0, 0, 0], [12, 0, 1, 0],
+const headacheHome: Array<[number, number, number, number, HeadacheLocation?]> = [
+  [0, 1, 0, 4, "Forehead"], [1, 1, 1, 6, "Left temple"], [2, 0, 0, 0],
+  [3, 1, 0, 3, "Forehead"], [4, 1, 0, 5, "Left temple"], [5, 1, 0, 4],
+  [6, 0, 0, 0], [7, 0, 0, 0], [8, 0, 1, 0], [9, 1, 1, 3, "Back of head"], [11, 0, 0, 0], [12, 0, 1, 0],
 ];
 
 export const demoCases: ReviewCase[] = [
@@ -238,9 +253,10 @@ export const demoCases: ReviewCase[] = [
     lastVisit: "2026-10-23", start: "2026-10-23", end: "2026-11-05",
     defaults: ["headache", "school", "pain"], measures: ["headache", "school", "pain"],
     milestones: [{ day: "2026-10-30", label: "Headache care plan updated" }],
-    records: headacheHome.map(([offset, headache, school, pain]) => ({
+    records: headacheHome.map(([offset, headache, school, pain, headacheLocation]) => ({
       id: "headache-" + offset, day: shiftDay("2026-10-23", offset), source: "Patient",
       detail: [headache ? "Headache reported." : "No headache reported.", school ? "Missed school." : "Did not report missing school.", "Pain rating " + pain + "/10."].join(" "),
+      headacheLocation,
       values: { headache, school, pain },
     })),
   },

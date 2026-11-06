@@ -11,6 +11,32 @@ interface Contact {
   role: "patient" | "clinician" | "super";
 }
 
+async function assignedContacts(supabase: Awaited<ReturnType<typeof createServerClient>>, userId: string, role: string) {
+  if (role === "patient") {
+    const { data: charts, error } = await supabase
+      .from("patients").select("doctor_id").eq("user_id", userId).not("doctor_id", "is", null);
+    if (error) throw error;
+    const ids = [...new Set(charts.map(({ doctor_id }) => doctor_id as string))].filter((id) => id !== userId);
+    if (!ids.length) return [];
+    const { data: doctors, error: directoryError } = await supabase
+      .from("app_users").select("auth_id, email").in("auth_id", ids);
+    if (directoryError) throw directoryError;
+    const emails = new Map(doctors.map(({ auth_id, email }) => [auth_id, email]));
+    return ids.map((id): Contact => ({
+      id, role: "clinician", name: emails.get(id)?.split("@")[0] || "Assigned doctor", email: emails.get(id) ?? "",
+    }));
+  }
+
+  const { data: charts, error } = await supabase
+    .from("patients").select("user_id, name").eq("doctor_id", userId).not("user_id", "is", null);
+  if (error) throw error;
+  const contacts = new Map<string, Contact>();
+  for (const { user_id, name } of charts) {
+    if (user_id && user_id !== userId) contacts.set(user_id, { id: user_id, name, email: "", role: "patient" });
+  }
+  return [...contacts.values()];
+}
+
 export async function GET() {
   // Auth client (cookie-based, for current user)
   const supabase = await createServerClient();
@@ -19,21 +45,27 @@ export async function GET() {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   }
 
-  // Service role client (for admin lookups)
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  const admin = createClient(url, serviceKey);
-
   // Determine current user's role
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const admin = serviceKey ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey) : null;
   const metaRole = user.user_metadata?.voxvitals_role;
   let role: string = metaRole || "patient";
   if (!metaRole) {
-    const { data: appUser } = await admin
+    const { data: appUser } = await (admin ?? supabase)
       .from("app_users")
       .select("role")
       .eq("auth_id", user.id)
       .maybeSingle();
     role = appUser?.role || "patient";
+  }
+
+  if (!admin) {
+    try {
+      return NextResponse.json({ success: true, data: await assignedContacts(supabase, user.id, role) });
+    } catch (error) {
+      console.error("[Messages] Assigned contacts lookup failed", error);
+      return NextResponse.json({ success: false, message: "Could not load assigned contacts." }, { status: 503 });
+    }
   }
 
   const contacts: Contact[] = [];

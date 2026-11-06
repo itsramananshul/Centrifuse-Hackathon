@@ -24,7 +24,37 @@ async function request<T>(
   return json.data;
 }
 
+function dashboardRole() {
+  return typeof window === "undefined" ? "" : localStorage.getItem("voxvitals-role") ?? "";
+}
+
+function dashboardPath(role: string) {
+  return "/dashboard?role=" + encodeURIComponent(role);
+}
+
 export const api = {
+  getDashboard: async () => {
+    const role = dashboardRole();
+    // The lead-doctor view uses the existing cross-patient endpoints.
+    if (role === "super") {
+      const [patients, checkIns, alerts] = await Promise.all([
+        api.getPatients(), api.getCheckIns(), api.getUnacknowledgedAlerts(),
+      ]);
+      return { patients, checkIns, alerts };
+    }
+    return request<{
+      patients: import("@trialpulse/types").Patient[];
+      checkIns: import("@trialpulse/types").CheckIn[];
+      alerts: import("@trialpulse/types").Alert[];
+    }>(dashboardPath(role));
+  },
+  getDashboardAlerts: () => {
+    const role = dashboardRole();
+    return role === "super"
+      ? api.getUnacknowledgedAlerts()
+      : request<import("@trialpulse/types").Alert[]>(dashboardPath(role) + "&alertsOnly=1");
+  },
+  getPatientAlerts: (patientId: string) => request<import("@trialpulse/types").Alert[]>("/alerts/patient/" + encodeURIComponent(patientId)),
   // Patients
   getPatients: () => {
     const role = typeof window !== "undefined" ? localStorage.getItem("voxvitals-role") || "" : "";
@@ -120,27 +150,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ image, mimeType }),
     }),
-
-  // Voice Verification
-  verifyVoice: async (
-    audioFile: File,
-    patientId: string
-  ): Promise<import("@trialpulse/types").VoiceVerificationResult> => {
-    const formData = new FormData();
-    formData.append("audio", audioFile);
-    formData.append("patientId", patientId);
-
-    const res = await fetch("/api/voice/verify", {
-      method: "POST",
-      body: formData,
-    });
-
-    const json = await res.json();
-    if (!json.success) {
-      throw new Error(json.message || "Voice verification failed");
-    }
-    return json.data;
-  },
 
   // Messages
   getContacts: () =>

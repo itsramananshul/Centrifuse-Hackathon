@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api } from "@/lib/api";
+import { visitFollowUpQuestions } from "@/lib/visit-follow-up";
 import { toast } from "sonner";
 import {
   MessageSquare,
@@ -86,7 +87,7 @@ function ContactList({
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <div className="p-6 text-center text-sm text-clinical-muted">
-            No contacts found
+            {search ? "No contacts match your search." : "No linked contacts yet."}
           </div>
         ) : (
           filtered.map((contact) => {
@@ -265,26 +266,37 @@ export default function MessagesPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [contactsError, setContactsError] = useState("");
+  const [contactAttempt, setContactAttempt] = useState(0);
   const [search, setSearch] = useState("");
   const [mobileShowChat, setMobileShowChat] = useState(false);
 
   // Load contacts
   useEffect(() => {
+    let active = true;
     setLoading(true);
+    setContactsError("");
     api
       .getContacts()
       .then((c) => {
+        if (!active) return;
         setContacts(c);
-        const target = new URLSearchParams(window.location.search).get("with");
+        const params = new URLSearchParams(window.location.search);
+        const target = params.get("with");
         const contact = c.find((item) => item.id === target);
         if (contact) {
           setSelectedContact(contact);
           setMobileShowChat(true);
+          const prompt = visitFollowUpQuestions.find(({ id }) => id === params.get("visitPrompt"));
+          if (contact.role === "patient" && prompt) setDraft((current) => current || prompt.text);
+        } else if (target) {
+          toast.error("That contact is unavailable. Choose an available contact.");
         }
       })
-      .catch(() => toast.error("Failed to load contacts"))
-      .finally(() => setLoading(false));
-  }, []);
+      .catch(() => { if (active) setContactsError("Your contacts could not be loaded."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [contactAttempt]);
 
   // Load messages for selected contact
   const loadMessages = useCallback(async () => {
@@ -354,7 +366,10 @@ export default function MessagesPage() {
       </div>
 
       {/* Two-panel layout */}
-      <div className="workspace-panel flex min-h-0 flex-1 overflow-hidden !p-0">
+      {contactsError ? <div className="workspace-panel">
+        <p role="alert" className="text-sm text-slate-700">{contactsError}</p>
+        <button type="button" className="btn-secondary mt-3 min-h-11" onClick={() => setContactAttempt((attempt) => attempt + 1)}>Retry</button>
+      </div> : <div className="workspace-panel flex min-h-0 flex-1 overflow-hidden !p-0">
         {/* Left: Contacts */}
         <div className={`w-full border-clinical-border md:w-[38%] md:max-w-80 md:shrink-0 md:border-r ${
           mobileShowChat ? "hidden md:flex md:flex-col" : "flex flex-col"
@@ -398,7 +413,7 @@ export default function MessagesPage() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

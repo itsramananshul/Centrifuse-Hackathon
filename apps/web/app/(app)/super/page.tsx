@@ -129,7 +129,7 @@ export default function SuperDoctorPage() {
   return (
     <div className="space-y-5">
       {/* ── Header ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Shield className="w-5 h-5 text-purple-600" />
@@ -150,13 +150,13 @@ export default function SuperDoctorPage() {
 
       {/* ── Stats Strip ────────────────────────────────────── */}
       {loading ? (
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           <StatCard
             icon={<Users className="w-4 h-4" />}
             label="Total Patients"
@@ -196,7 +196,7 @@ export default function SuperDoctorPage() {
       )}
 
       {/* ── Tab Bar ────────────────────────────────────────── */}
-      <div className="flex border-b border-clinical-border">
+      <div className="flex flex-wrap gap-x-1 border-b border-clinical-border">
         {(
           [
             { id: "overview", label: "Global Overview", icon: Shield },
@@ -208,9 +208,9 @@ export default function SuperDoctorPage() {
           <button
             key={tab.id}
             onClick={() => setSelectedTab(tab.id)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex min-h-11 items-center gap-1.5 border-b-2 px-2.5 py-2 text-sm font-medium transition-colors sm:px-4 ${
               selectedTab === tab.id
-                ? "border-purple-600 text-purple-700"
+                ? "border-primary-600 text-primary-700"
                 : "border-transparent text-clinical-muted hover:text-slate-700"
             }`}
           >
@@ -294,7 +294,7 @@ function OverviewTab({
   const top5 = rankedPatients.slice(0, 5);
 
   return (
-    <div className="grid grid-cols-2 gap-5">
+    <div className="grid min-w-0 gap-5 lg:grid-cols-2">
       {/* Left: Top 5 High-Risk Patients Globally */}
       <div>
         <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-1.5">
@@ -420,7 +420,7 @@ function OverviewTab({
 function DoctorPerformanceTab({ doctors }: { doctors: Doctor[] }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3">
         {doctors.map((doc) => (
           <div key={doc.id} className="card space-y-4">
             {/* Header */}
@@ -637,7 +637,7 @@ function AnalyticsTab({
   const total = rankedPatients.length || 1;
 
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid min-w-0 gap-4 lg:grid-cols-3">
       {/* Cohort Stats */}
       <div className="card space-y-3">
         <h3 className="text-sm font-semibold text-slate-900">

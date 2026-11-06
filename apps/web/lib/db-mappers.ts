@@ -18,7 +18,6 @@ export function mapPatient(row: any): Patient {
     enrolledAt: row.enrolled_at,
     status: row.status,
     latestCheckInId: row.latest_check_in_id ?? undefined,
-    voicePhrase: row.voice_phrase ?? undefined,
     doctorId: row.doctor_id ?? undefined,
     userId: row.user_id ?? undefined,
   };

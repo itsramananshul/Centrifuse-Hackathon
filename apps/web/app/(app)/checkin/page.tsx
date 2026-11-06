@@ -5,13 +5,11 @@ import { useRouter } from "next/navigation";
 import type { Patient, AiAnalysis } from "@trialpulse/types";
 import { api } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
-import { VoiceVerification } from "@/components/VoiceVerification";
 import { PatientDailyCheckIn } from "@/components/PatientDailyCheckIn";
 import { PatientCheckInHistory } from "@/components/PatientCheckInHistory";
 import { PatientInboxNotice } from "@/components/PatientInboxNotice";
 import { PassiveMonitor } from "@/components/PassiveMonitor";
 import { toast } from "sonner";
-import { recordAuditEvent } from "@/lib/security/audit";
 import {
   Mic,
   MicOff,
@@ -29,7 +27,6 @@ export default function CheckInPage() {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState("");
-  const [voiceVerified, setVoiceVerified] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -275,6 +272,7 @@ export default function CheckInPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push("/dashboard")}
+          aria-label="Back to dashboard"
           className="btn-ghost p-2"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -302,7 +300,6 @@ export default function CheckInPage() {
           value={selectedPatient}
           onChange={(e) => {
             setSelectedPatient(e.target.value);
-            setVoiceVerified(false);
           }}
           className="input"
         >
@@ -315,24 +312,7 @@ export default function CheckInPage() {
         </select>
       </div>
 
-      {/* Voice Verification — shown after patient is selected, before check-in form */}
-      {selectedPatient && !voiceVerified && (
-        <VoiceVerification
-          patientId={selectedPatient}
-          onVerified={() => {
-            setVoiceVerified(true);
-            recordAuditEvent("voice_verification_passed", { patientId: selectedPatient });
-          }}
-          onSkip={() => {
-            setVoiceVerified(true);
-            recordAuditEvent("voice_verification_skipped", { patientId: selectedPatient });
-            toast.warning("Voice verification skipped — proceeding without identity check");
-          }}
-        />
-      )}
-
-      {/* Voice Recording — only shown after verification */}
-      {(selectedPatient && voiceVerified) && (
+      {selectedPatient && (
       <>
 
       {/* Voice Recording */}
@@ -343,6 +323,7 @@ export default function CheckInPage() {
         <div className="flex items-center gap-4">
           <button
             onClick={handleRecord}
+            aria-label={isRecording ? "Stop recording" : "Start recording"}
             className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-sm flex-shrink-0 ${
               isRecording
                 ? "bg-red-500 hover:bg-red-600 animate-pulse shadow-red-200"

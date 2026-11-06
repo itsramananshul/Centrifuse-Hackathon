@@ -241,7 +241,7 @@ export function AICompanionWidget({ patient }: { patient: Patient | null }) {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 w-[380px] h-[540px] flex flex-col rounded-2xl border border-clinical-border glass shadow-2xl overflow-hidden">
+    <div className="workspace-panel fixed bottom-4 right-4 z-40 flex h-[min(540px,calc(100dvh-6rem))] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden !p-0 shadow-2xl sm:bottom-6 sm:right-6">
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-primary-600 text-white">
         <div className="flex items-center gap-2">
