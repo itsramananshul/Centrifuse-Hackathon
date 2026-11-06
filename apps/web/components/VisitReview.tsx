@@ -2,17 +2,17 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ArrowDownUp, CalendarDays, ChevronRight, CircleDot, ClipboardList, MessageSquare, SlidersHorizontal } from "lucide-react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { ArrowDown, ArrowDownUp, ArrowUp, CalendarDays, ChevronRight, CircleDot, ClipboardList, MessageSquare, SlidersHorizontal } from "lucide-react";
+import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { HomeReviewQueue } from "@/components/HomeReviewQueue";
+import { ReviewPatterns } from "@/components/ReviewPatterns";
 import {
-  comparison, findDifference, makeDays, measures, shiftDay, shortDate, summarize,
+  comparison, findDifference, makeDays, measures, metricText, shiftDay, shortDate, summarize,
   type Measure, type Observation, type ReviewCase, type ReviewDay,
 } from "@/lib/visit-review";
 
 const focus = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400";
-const metricText = (metric: Measure, amount: number) =>
-  measures[metric].kind === "yes-no" ? (amount ? "Yes" : "No") :
-    new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(amount) + " " + measures[metric].unit;
+const chartDate = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" });
 
 function summaryText(metric: Measure, stats: ReturnType<typeof summarize>) {
   if (stats.mean === null) return "No entries";
@@ -44,6 +44,7 @@ function Timeline({ days, metric, onDay, selected, milestone }: {
               domain={measure.kind === "yes-no" ? [0, 1] : ["auto", "auto"]}
               ticks={measure.kind === "yes-no" ? [0, 1] : undefined}
               tickFormatter={measure.kind === "yes-no" ? (v) => v ? "Yes" : "No" : undefined} />
+            {days.some((row) => row.day === milestone) && <ReferenceLine x={shortDate(milestone)} stroke="#a2a7ab" strokeDasharray="4 4" />}
             <Line dataKey="value" stroke={measure.color} strokeWidth={2} connectNulls={false} isAnimationActive={false}
               dot={{ r: 3, fill: measure.color, stroke: "none" }} />
           </LineChart>
@@ -68,17 +69,22 @@ function Timeline({ days, metric, onDay, selected, milestone }: {
   );
 }
 
-function SourceList({ day }: { day?: ReviewDay }) {
+function SourceList({ day, synthetic }: { day?: ReviewDay; synthetic: boolean }) {
   return (
     <section className="card min-w-0" aria-labelledby="record-heading">
-      <h2 id="record-heading" className="section-title">{day ? shortDate(day.day) + " records" : "Source records"}</h2>
+      <h2 id="record-heading" tabIndex={-1} className={"section-title scroll-mt-6 " + focus}>{day ? shortDate(day.day) + " records" : "Source records"}</h2>
       {day?.entries.length ? <ul className="mt-3 space-y-3">
         {day.entries.map((entry) => <li key={entry.id} className="rounded-lg border border-clinical-border bg-slate-50 p-3">
-          <p className="text-xs font-semibold text-primary-300">{entry.source}</p>
+          <p className="text-xs font-semibold text-primary-300">
+            {synthetic && entry.source !== "Simulated spirometer" ? "Simulated home tracker · " : ""}{entry.source}
+          </p>
           <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-700">{entry.detail}</p>
+          <p className="mt-1 text-xs text-clinical-muted">Observation date <time dateTime={entry.day}>{chartDate.format(new Date(entry.day))}</time></p>
           {entry.recordedAt && <time dateTime={entry.recordedAt} className="mt-1 block text-xs text-clinical-muted">
-            Recorded {new Date(entry.recordedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+            Recorded {new Date(entry.recordedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC
           </time>}
+          {synthetic && entry.recordedAt?.slice(0, 10) && entry.recordedAt.slice(0, 10) > entry.day &&
+            <p className="mt-1 text-xs text-amber-700">Reported on a later day</p>}
           <ul className="mt-2 flex flex-wrap gap-2">{Object.entries(entry.values).map(([key, value]) =>
             <li key={key} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700">{measures[key as Measure].label}: {metricText(key as Measure, value)}</li>)}</ul>
         </li>)}
@@ -87,49 +93,108 @@ function SourceList({ day }: { day?: ReviewDay }) {
   );
 }
 
-export function VisitReview({ cases }: { cases: ReviewCase[] }) {
+function AlignedDays({ days, selected, milestone, onDay }: {
+  days: ReviewDay[]; selected: Measure[]; milestone: string; onDay: (day: string) => void;
+}) {
+  return <div className="mt-3 overflow-x-auto">
+    <table className="w-full text-left text-sm tabular-nums">
+      <thead className="text-clinical-muted"><tr>
+        <th scope="col" className="px-2 py-2">Date</th>
+        {selected.map((metric) => <th key={metric} scope="col" className="px-2 py-2">{measures[metric].label}</th>)}
+      </tr></thead>
+      <tbody className="divide-y divide-clinical-border">
+        {days.map(({ day, values }) => <tr key={day}>
+          <th scope="row" className="px-2 font-normal">
+            <button type="button" onClick={() => onDay(day)} aria-label={"Open records for " + shortDate(day)}
+              className={"min-h-11 whitespace-nowrap text-primary-300 underline underline-offset-4 " + focus}>
+              {shortDate(day)}
+            </button>
+            {day === milestone && <span className="ml-2 block pb-1 text-xs text-clinical-muted">Comparison date</span>}
+          </th>
+          {selected.map((metric) => {
+            const value = values[metric];
+            return <td key={metric} className={"px-2 py-2 " + (value === undefined ? "text-clinical-muted" : "text-slate-900")}>
+              {value === undefined ? "No entry" : metricText(metric, value)}
+            </td>;
+          })}
+        </tr>)}
+      </tbody>
+    </table>
+  </div>;
+}
+
+function SyntheaChart({ chart }: { chart: NonNullable<ReviewCase["chart"]> }) {
+  return <details className="card">
+    <summary className={"min-h-11 cursor-pointer font-semibold text-slate-900 " + focus}>Synthea chart history</summary>
+    <p className="text-sm text-clinical-muted">Selected FHIR R4 records from one synthetic patient. Maya Chen is the demo name. Home tracker reports, spirometer readings, and the care plan update were simulated separately.</p>
+    <p className="mt-2 break-words text-xs text-clinical-muted">{chart.patientReference}</p>
+    <ul className="mt-3 divide-y divide-clinical-border">
+      {chart.entries.map((entry) => <li key={entry.reference} className="py-2 text-sm text-slate-700">
+        <time dateTime={entry.timestamp}>{chartDate.format(new Date(entry.timestamp))}</time> · {entry.label}
+        <span className="block break-words text-xs text-clinical-muted">{entry.reference}</span>
+      </li>)}
+    </ul>
+    <a href="https://synthetichealth.github.io/downloads.html" className={"inline-flex min-h-11 items-center text-sm text-primary-300 underline underline-offset-4 " + focus}>Synthea FHIR R4 sample source</a>
+  </details>;
+}
+
+export function VisitReview({ cases, comparisonDate }: { cases: ReviewCase[]; comparisonDate?: string | null }) {
   const [id, setId] = useState(cases[0].id);
+  const [demoUpdates, setDemoUpdates] = useState<Record<string, Observation[]>>({});
   const patient = cases.find((entry) => entry.id === id) ?? cases[0];
+  const compare = comparisonDate && /^\d{4}-\d{2}-\d{2}$/.test(comparisonDate) &&
+    Number.isFinite(Date.parse(comparisonDate)) && comparisonDate <= patient.end ? comparisonDate : undefined;
   return (
     <div className="mx-auto max-w-[1440px] space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-widest text-primary-300">HealthGPS · Clinician workspace</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">Since last visit</h1>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">{patient.lastVisit ? "Since last visit" : "Home monitoring review"}</h1>
           <p className="mt-1 text-sm text-clinical-muted">Home records, trends, and follow-up in one place.</p>
         </div>
         {patient.synthetic && <span className="badge-neutral">Synthetic demo data</span>}
       </header>
-      {cases.length > 1 && <nav aria-label="Demo review queue" className="flex flex-wrap gap-2">
-        {cases.map((item) => <Segment key={item.id} selected={item.id === id} value={item.name + " · " + item.condition} onClick={() => setId(item.id)} />)}
-      </nav>}
-      <ReviewWorkspace key={patient.id} patient={patient} />
+      {cases.length > 1 && <section aria-labelledby="demo-queue-heading" className="card">
+        <h2 id="demo-queue-heading" className="section-title">Demo review queue</h2>
+        <HomeReviewQueue cases={cases.map((item) => ({ ...item, records: [...item.records, ...(demoUpdates[item.id] ?? [])] }))}
+          renderPatient={({ patient: item }) => <Segment selected={item.id === id} value={item.name + " · " + item.condition} onClick={() => setId(item.id)} />} />
+      </section>}
+      <ReviewWorkspace key={patient.id} patient={patient} comparisonDate={compare}
+        extra={demoUpdates[patient.id] ?? []}
+        onDemoSave={(entry) => setDemoUpdates((previous) => ({ ...previous, [patient.id]: [...(previous[patient.id] ?? []), entry] }))} />
     </div>
   );
 }
 
-function ReviewWorkspace({ patient }: { patient: ReviewCase }) {
+function ReviewWorkspace({ patient, extra, onDemoSave, comparisonDate }: {
+  patient: ReviewCase; extra: Observation[]; onDemoSave: (entry: Observation) => void; comparisonDate?: string;
+}) {
   const [selected, setSelected] = useState<Measure[]>(patient.defaults);
   const [active, setActive] = useState<Measure>(patient.defaults[0]);
   const [end, setEnd] = useState(patient.end);
-  const [range, setRange] = useState(14);
-  const [anchor, setAnchor] = useState(patient.milestones[0]?.day ?? "");
+  const [range, setRange] = useState(patient.lastVisit ? 0 : 14);
+  const [anchor, setAnchor] = useState(comparisonDate ?? patient.milestones[0]?.day ?? "");
   const [compareWidth, setCompareWidth] = useState(7);
   const [selectedDay, setSelectedDay] = useState(patient.milestones[0]?.day ?? patient.end);
+  const [investigationDay, setInvestigationDay] = useState<string>();
   const [mode, setMode] = useState("Glance");
   const [draft, setDraft] = useState("");
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<Measure | null>(null);
+  const [answer, setAnswer] = useState<{ metric?: Measure; compare: boolean }>();
   const [reviewed, setReviewed] = useState<string[] | null>(null);
-  const [extra, setExtra] = useState<Observation[]>([]);
   const [ready, setReady] = useState(false);
   const storageKey = "healthgps-review-v1:" + patient.id;
+
+  useEffect(() => {
+    if (comparisonDate && window.location.hash === "#outcome-comparison") {
+      document.getElementById("outcome-comparison")?.scrollIntoView();
+    }
+  }, [comparisonDate]);
 
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
       if (Array.isArray(saved.measures)) {
-        const valid = patient.measures.filter((metric) => saved.measures.includes(metric));
+        const valid = [...new Set<Measure>(saved.measures.filter((metric: Measure) => patient.measures.includes(metric)))];
         if (valid.length) { setSelected(valid); setActive(valid[0]); }
       }
       if (Array.isArray(saved.reviewed)) setReviewed(saved.reviewed.filter((value: unknown) => typeof value === "string"));
@@ -143,13 +208,20 @@ function ReviewWorkspace({ patient }: { patient: ReviewCase }) {
   }, [ready, storageKey, selected, reviewed]);
 
   const records = [...patient.records, ...extra];
-  const start = range === 0 && patient.lastVisit ? patient.lastVisit : shiftDay(end, 1 - (range || 14));
+  const windowStart = range === 0 && patient.lastVisit ? patient.lastVisit : shiftDay(end, 1 - (range || 14));
+  const start = patient.synthetic && windowStart < patient.start ? patient.start : windowStart;
   const days = makeDays(start, end, records);
-  const sourceDay = days.find((row) => row.day === selectedDay) ?? days.at(-1);
-  const periods = anchor && anchor <= patient.end ? comparison(records, anchor, Math.min(compareWidth, Math.floor((Date.parse(patient.end) - Date.parse(anchor)) / 86_400_000) + 1)) : null;
-  const difference = periods ? findDifference(periods, patient.measures) : null;
-  const newEntries = reviewed ? records.filter((entry) => !reviewed.includes(entry.id)).length : null;
+  const width = anchor && anchor <= end
+    ? Math.min(compareWidth, Math.round((Date.parse(end) - Date.parse(anchor)) / 86_400_000) + 1,
+      patient.synthetic ? Math.round((Date.parse(anchor) - Date.parse(patient.start)) / 86_400_000) : compareWidth)
+    : 0;
+  const periods = width > 0 ? comparison(records, anchor, width) : null;
+  const sourceDay = investigationDay ? makeDays(investigationDay, investigationDay, records)[0]
+    : days.find((row) => row.day === selectedDay) ?? days.at(-1);
+  const difference = periods ? findDifference(periods, selected) : null;
+  const newEntries = reviewed ? records.filter((entry) => !reviewed.includes(entry.id)) : null;
   const loggedDays = days.filter((day) => day.entries.length > 0).length;
+  const homeDays = days.filter((day) => day.entries.some((entry) => entry.source !== "Simulated spirometer")).length;
   const selectMeasure = (metric: Measure) => {
     if (selected.includes(metric)) {
       if (selected.length === 1) return;
@@ -161,6 +233,17 @@ function ReviewWorkspace({ patient }: { patient: ReviewCase }) {
     }
   };
 
+  function moveMeasure(index: number, direction: -1 | 1) {
+    const next = [...selected];
+    [next[index], next[index + direction]] = [next[index + direction], next[index]];
+    setSelected(next);
+  }
+
+  function openSource(day: string) {
+    setInvestigationDay(day);
+    requestAnimationFrame(() => document.getElementById("record-heading")?.focus());
+  }
+
   function ask(event: FormEvent) {
     event.preventDefault();
     const terms = draft.trim().toLowerCase();
@@ -170,13 +253,14 @@ function ReviewWorkspace({ patient }: { patient: ReviewCase }) {
       pain: /pain/, checkin: /check.in|logged|entries/,
     };
     const metric = patient.measures.find((key) => aliases[key].test(terms));
-    setQuestion(draft.trim());
-    setAnswer(metric ?? null);
+    setAnswer({ metric, compare: /before|after|treatment|care plan|chang/.test(terms) });
     if (metric) {
       if (!selected.includes(metric)) setSelected([...selected, metric]);
       setActive(metric);
     }
   }
+
+  const answerStats = answer?.metric ? summarize(days, answer.metric) : null;
 
   return (
     <>
@@ -190,23 +274,41 @@ function ReviewWorkspace({ patient }: { patient: ReviewCase }) {
         </div>
       </div>
 
+      {mode === "Glance" && difference && <aside className="card flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="section-title">Visit brief</h2>
+          <p className="mt-1 text-sm text-slate-700">On recorded days, {measures[difference.less.measure].label.toLowerCase()} was reported less often and {measures[difference.more.measure].label.toLowerCase()} more often after {shortDate(anchor)}.</p>
+        </div>
+        <a href="#outcome-comparison" className={"inline-flex min-h-11 items-center text-sm text-primary-300 underline underline-offset-4 " + focus}>See comparison and evidence</a>
+      </aside>}
+
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-sm text-slate-700">Period
-          <select className="input mt-1 block min-h-11 text-base" value={range} onChange={(e) => setRange(Number(e.target.value))}>
+              <select className="input mt-1 block min-h-11 text-base" value={range} onChange={(e) => { setRange(Number(e.target.value)); setInvestigationDay(undefined); }}>
             {patient.lastVisit && <option value={0}>Since last visit</option>}
             <option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option>
           </select>
         </label>
         <label className="text-sm text-slate-700">Through
-          <input className="input mt-1 block min-h-11 text-base" type="date" value={end} max={patient.end} onChange={(e) => { if (e.target.value) { setEnd(e.target.value); if (patient.lastVisit && e.target.value < patient.lastVisit) setRange(14); } }} />
+          <input className="input mt-1 block min-h-11 text-base" type="date" value={end} min={patient.synthetic ? patient.start : undefined} max={patient.end} onChange={(e) => { if (e.target.value) { setEnd(e.target.value); setInvestigationDay(undefined); if (patient.lastVisit && e.target.value < patient.lastVisit) setRange(14); } }} />
         </label>
         <details className="relative">
           <summary className={"btn-secondary flex min-h-11 cursor-pointer items-center gap-2 text-sm " + focus}><SlidersHorizontal size={15} aria-hidden /> Measures</summary>
-          <fieldset className="absolute left-0 z-10 mt-1 w-52 rounded-lg border border-clinical-border bg-clinical-card p-2 shadow-lg">
+          <fieldset className="z-10 mt-1 w-60 rounded-lg border border-clinical-border bg-clinical-card p-2 shadow-lg sm:absolute sm:left-0">
             <legend className="sr-only">Pinned measures</legend>
-            {patient.measures.map((metric) => <label key={metric} className="flex min-h-11 items-center gap-2 rounded px-2 text-sm text-slate-700 hover:bg-slate-100">
-              <input type="checkbox" checked={selected.includes(metric)} disabled={selected.length === 1 && selected.includes(metric)} onChange={() => selectMeasure(metric)} />{measures[metric].label}
-            </label>)}
+            {[...selected, ...patient.measures.filter((metric) => !selected.includes(metric))].map((metric, index) => {
+              const pinned = index < selected.length;
+              return <div key={metric} className="flex items-center gap-0.5">
+                <label className="flex min-h-11 flex-1 items-center gap-2 rounded px-2 text-sm text-slate-700 hover:bg-slate-100">
+                  <input type="checkbox" checked={pinned} disabled={selected.length === 1 && pinned} onChange={() => selectMeasure(metric)} />{measures[metric].label}
+                </label>
+                {pinned && <>
+                  <button type="button" disabled={index === 0} aria-label={"Move " + measures[metric].label + " up"} onClick={() => moveMeasure(index, -1)} className={"grid size-11 place-items-center rounded text-slate-700 hover:bg-slate-100 disabled:opacity-30 " + focus}><ArrowUp size={15} aria-hidden /></button>
+                  <button type="button" disabled={index === selected.length - 1} aria-label={"Move " + measures[metric].label + " down"} onClick={() => moveMeasure(index, 1)} className={"grid size-11 place-items-center rounded text-slate-700 hover:bg-slate-100 disabled:opacity-30 " + focus}><ArrowDown size={15} aria-hidden /></button>
+                </>}
+              </div>;
+            })}
+            <button type="button" className={"btn-secondary mt-2 min-h-11 text-sm " + focus} onClick={() => { setSelected(patient.defaults); setActive(patient.defaults[0]); }}>Reset to defaults</button>
           </fieldset>
         </details>
       </div>
@@ -224,18 +326,27 @@ function ReviewWorkspace({ patient }: { patient: ReviewCase }) {
         <div className="card"><p className="flex items-center gap-2 text-sm text-slate-700"><CalendarDays size={14} aria-hidden /> Record coverage</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{loggedDays} / {days.length}</p>
           <p className="text-xs text-clinical-muted">Days with at least one entry</p>
+          {patient.chart && <p className="mt-1 text-xs text-clinical-muted">{homeDays} home tracker days · {summarize(days, "lung").logged} spirometer days</p>}
         </div>
       </div>
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <Timeline days={days} metric={active} selected={sourceDay?.day ?? ""} onDay={setSelectedDay} milestone={anchor} />
-        <SourceList day={sourceDay} />
+        <Timeline days={days} metric={active} selected={sourceDay?.day ?? ""} onDay={(day) => { setSelectedDay(day); setInvestigationDay(undefined); }} milestone={anchor} />
+        <SourceList day={sourceDay} synthetic={patient.synthetic} />
       </div>
 
-      {mode !== "Discuss" && <section className="card">
+      {mode === "Explore" && <section className="card min-w-0">
+        <h2 className="section-title">Measures by date</h2>
+        <p className="section-subtitle mt-1">Read pinned measures across the same dates. Select a date to open its source records.</p>
+        <AlignedDays days={days} selected={selected} milestone={anchor} onDay={openSource} />
+      </section>}
+      {mode === "Explore" && <ReviewPatterns days={days} available={patient.measures} onDay={openSource} />}
+      {patient.chart && mode !== "Discuss" && <SyntheaChart chart={patient.chart} />}
+
+      {mode !== "Discuss" && <section className="card scroll-mt-6" id="outcome-comparison" aria-labelledby="outcome-heading">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="section-title flex items-center gap-2"><ArrowDownUp size={17} aria-hidden /> Before and after</h2>
+            <h2 id="outcome-heading" className="section-title flex items-center gap-2"><ArrowDownUp size={17} aria-hidden /> Before and after</h2>
             <p className="section-subtitle mt-1">Compare equal periods around a date. The comparison shows recorded changes.</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -246,11 +357,20 @@ function ReviewWorkspace({ patient }: { patient: ReviewCase }) {
           </div>
         </div>
         {periods ? <>
+          {width < compareWidth && <p className="mt-3 text-sm text-clinical-muted">Showing {width} {width === 1 ? "day" : "days"} on each side based on the available date range.</p>}
           {difference && <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
             <p className="font-semibold text-amber-700">Measures moved in different directions</p>
             <p className="mt-1 text-sm text-slate-700">
-              {measures[difference.less.measure].label} was reported less often and {measures[difference.more.measure].label.toLowerCase()} more often on recorded days. Review the coverage and source entries with the family.
+              This finding compares the share of recorded days with a “yes” answer in each period. Each measure needs at least three recorded days on each side.
             </p>
+            <ul className="mt-2 space-y-1 text-sm tabular-nums text-slate-700">
+              {[difference.less, difference.more].map(({ measure, before, after }) =>
+                <li key={measure}><strong>{measures[measure].label}</strong> · {before.positive} of {before.logged} recorded days before → {after.positive} of {after.logged} after</li>)}
+            </ul>
+            <details className="mt-2">
+              <summary className={"min-h-11 cursor-pointer rounded text-sm font-medium text-slate-900 " + focus}>Review dates behind this finding</summary>
+              <AlignedDays days={[...periods.before, ...periods.after]} selected={[difference.less.measure, difference.more.measure]} milestone={anchor} onDay={openSource} />
+            </details>
           </div>}
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-left text-sm tabular-nums">
@@ -273,29 +393,38 @@ function ReviewWorkspace({ patient }: { patient: ReviewCase }) {
             </table>
           </div>
           {patient.milestones.find((item) => item.day === anchor) && <p className="mt-2 text-xs text-clinical-muted">{shortDate(anchor)} · {patient.milestones.find((item) => item.day === anchor)?.label}</p>}
-        </> : <p className="mt-4 text-sm text-clinical-muted">Choose a date to compare the surrounding periods.</p>}
+        </> : <p className="mt-4 text-sm text-clinical-muted">Choose a comparison date with time available on both sides.</p>}
       </section>}
 
       {mode === "Explore" && <div className="grid gap-4 lg:grid-cols-2">
         <section className="card">
           <h2 className="section-title flex items-center gap-2"><ClipboardList size={17} aria-hidden /> Since last review</h2>
-          <p className="mt-2 text-sm text-slate-700">{newEntries === null ? "Mark the current records as reviewed to start tracking new entries on this device." : newEntries + " new entries since your last review."}</p>
+          <p className="mt-2 text-sm text-slate-700" role="status">{newEntries === null ? "Mark the current records as reviewed to start tracking new entries on this device." : newEntries.length + (newEntries.length === 1 ? " new entry" : " new entries") + " since your last review."}</p>
+          {!!newEntries?.length && <ul className="mt-2 flex flex-wrap gap-x-3">
+            {[...new Set(newEntries.map((entry) => entry.day))].sort().map((day) =>
+              <li key={day}><button type="button" className={"min-h-11 text-sm text-primary-300 underline underline-offset-4 " + focus} onClick={() => openSource(day)}>Review {shortDate(day)}</button></li>)}
+          </ul>}
           <button type="button" className={"btn-secondary mt-3 min-h-11 " + focus} onClick={() => setReviewed(records.map((entry) => entry.id))}>Mark reviewed</button>
         </section>
         <section className="card">
           <h2 className="section-title">Ask about these records</h2>
           <form className="mt-2 flex flex-wrap gap-2" onSubmit={ask}>
             <label htmlFor="record-question" className="sr-only">Question about a measure</label>
-            <input id="record-question" className="input min-w-0 flex-1 text-base" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={"Ask about " + measures[active].label.toLowerCase() + "…"} />
+            <input id="record-question" name="record-question" required className="input min-w-0 flex-1 text-base" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={"Ask about " + measures[active].label.toLowerCase() + "…"} />
             <button className={"btn-primary min-h-11 " + focus}>Show</button>
           </form>
-          {question && <p className="mt-2 break-words text-sm text-slate-700" role="status">
-            {answer ? measures[answer].label + ": " + summaryText(answer, summarize(days, answer)) + ". The timeline above shows the supporting days." : "Try asking about " + patient.measures.map((key) => measures[key].label.toLowerCase()).join(", ") + "."}
-          </p>}
+          {answer && <div className="mt-2 space-y-1 text-sm text-slate-700" role="status">
+            {answer.metric && answerStats ? <>
+              <p><strong>{measures[answer.metric].label}</strong> · {summaryText(answer.metric, answerStats)}. Coverage {answerStats.logged} of {answerStats.total} days.</p>
+              {answer.compare && (periods ?
+                <p>Before {shortDate(anchor)} · {summaryText(answer.metric, summarize(periods.before, answer.metric))}. On or after · {summaryText(answer.metric, summarize(periods.after, answer.metric))}. <a href="#outcome-comparison" className={"text-primary-300 underline " + focus}>Open the comparison</a></p>
+                : <p>Choose a comparison date to see what changed.</p>)}
+            </> : <p>Try asking about {patient.measures.map((key) => measures[key].label.toLowerCase()).join(", ")}.</p>}
+          </div>}
         </section>
       </div>}
       {patient.synthetic && patient.condition === "Asthma" &&
-        <DemoCaregiver patient={patient} onSave={(entry) => setExtra((previous) => [...previous.filter((old) => old.id !== entry.id), entry])} />}
+        <DemoCaregiver patient={patient} onSave={(entry) => { onDemoSave(entry); setInvestigationDay(entry.day); }} />}
       {patient.synthetic && <DemoFollowUp key={patient.id} />}
       {!patient.synthetic && patient.recipientId && <section className="card">
         <h2 className="section-title flex items-center gap-2"><MessageSquare size={17} aria-hidden /> Follow up with the patient</h2>
@@ -327,8 +456,8 @@ function DemoCaregiver({ patient, onSave }: { patient: ReviewCase; onSave: (entr
   }
   function save(event: FormEvent) {
     event.preventDefault();
-    if (!note.trim() || cough === "") return;
-    onSave({ id: "demo-caregiver-follow-up", day: patient.end, source: "Caregiver",
+    if (!note.trim() || cough === "" || saved) return;
+    onSave({ id: "demo-caregiver-" + crypto.randomUUID(), day: patient.end, source: "Caregiver",
       detail: note.trim(), values: { cough: Number(cough) } });
     setSaved(true);
   }

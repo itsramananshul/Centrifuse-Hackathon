@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { api } from "@/lib/api";
-import { homeQuestions, questionsFor, writeHomeAnswers, type HomeQuestion } from "@/lib/home-tracker";
+import { homeQuestions, questionsFor, writeHomeAnswers, writeObservationDate, type HomeQuestion } from "@/lib/home-tracker";
 import { createClient } from "@/lib/supabase/client";
 import type { Patient } from "@trialpulse/types";
 import { toast } from "sonner";
@@ -98,8 +98,10 @@ const DEFAULT_MEDICATIONS: Omit<MedItem, "taken">[] = [
 
 export function PatientDailyCheckIn({
   patient,
+  onSaved,
 }: {
   patient: Patient;
+  onSaved?: () => void;
 }) {
   // ── Assigned doctor ─────────────────────────────────────
   const [doctorName, setDoctorName] = useState<string | null>(null);
@@ -246,7 +248,7 @@ export function PatientDailyCheckIn({
       parts.push(`Medications missed: ${missedMeds.map((m) => m.name).join(", ")}.`);
     }
 
-    return [...parts, ...writeHomeAnswers(homeAnswers)].join("\n");
+    return [...parts, ...writeHomeAnswers(homeAnswers), ...writeObservationDate(checkInDate)].join("\n");
   };
 
   // ── Submit ──────────────────────────────────────────────
@@ -293,6 +295,7 @@ export function PatientDailyCheckIn({
         checkInDate: checkInDate || undefined,
         painLevel: painLevel || undefined,
       });
+      onSaved?.();
 
       setPipelineStep("Analyzing your health update...");
       const result = await api.analyzeCheckIn(checkIn.id);
@@ -387,6 +390,22 @@ export function PatientDailyCheckIn({
             ? "We've noted some concerns from your update. Your care team will review this shortly."
             : "Thank you for your update! Your care team can now review today's check-in."}
         </p>
+
+        <section className="card mb-6 text-left" aria-labelledby="saved-home-checkin">
+          <h2 id="saved-home-checkin" className="section-title">What you shared</h2>
+          <dl className="mt-2 space-y-2 text-sm">
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-slate-700">Pain level</dt>
+              <dd className="font-medium text-slate-900">{PAIN_OPTIONS.find((option) => option.value === painLevel)?.label}</dd>
+            </div>
+            {questionsFor(patient.condition).map((key) => (
+              <div key={key} className="flex items-baseline justify-between gap-3">
+                <dt className="text-slate-700">{homeQuestions[key].question}</dt>
+                <dd className="shrink-0 font-medium text-slate-900">{homeAnswers[key] || "No entry"}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
 
         {allMedsTaken && (
           <div className="space-y-2 mb-6">

@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 import { VoiceVerification } from "@/components/VoiceVerification";
 import { PatientDailyCheckIn } from "@/components/PatientDailyCheckIn";
+import { PatientCheckInHistory } from "@/components/PatientCheckInHistory";
 import { PatientInboxNotice } from "@/components/PatientInboxNotice";
 import { PassiveMonitor } from "@/components/PassiveMonitor";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ export default function CheckInPage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [role, setRole] = useState<string | null>(null);
   const [patientRecord, setPatientRecord] = useState<Patient | null>(null);
+  const [checkInRevision, setCheckInRevision] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -66,7 +68,8 @@ export default function CheckInPage() {
     return (
       <div className="max-w-2xl mx-auto space-y-6 pb-8">
         <PatientInboxNotice />
-        <PatientDailyCheckIn patient={patientRecord} />
+        <PatientDailyCheckIn patient={patientRecord} onSaved={() => setCheckInRevision((revision) => revision + 1)} />
+        <PatientCheckInHistory key={patientRecord.id} patientId={patientRecord.id} revision={checkInRevision} />
         <PassiveMonitor />
       </div>
     );

@@ -19,6 +19,7 @@ import {
   PatientDetailEmpty,
 } from "@/components/PatientDetailPanel";
 import { SmartAlertBar } from "@/components/SmartAlertBar";
+import { DashboardHomeReviewQueue } from "@/components/HomeReviewQueue";
 import { CohortInsightsPanel } from "@/components/CohortInsightsPanel";
 import { SimulationPanel, SyntheticBadge } from "@/components/SimulationPanel";
 import { OptimizationPanel } from "@/components/OptimizationPanel";
@@ -437,6 +438,10 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {!loading && <div className="mb-3 flex-shrink-0">
+        <DashboardHomeReviewQueue patients={patients} checkIns={checkins} />
+      </div>}
 
       {/* ── Smart Alerts Bar ─────────────────────────────── */}
       {!loading && smartAlerts.length > 0 && (
