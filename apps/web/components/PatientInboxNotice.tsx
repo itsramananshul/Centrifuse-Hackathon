@@ -27,7 +27,7 @@ export function PatientInboxNotice() {
     };
   }, []);
 
-  return <div className="rounded-xl border border-primary-200 bg-primary-50 p-4" aria-live="polite">
+  return <div className="rounded-xl border border-primary-200 bg-primary-50 px-3" aria-live="polite">
     <Link href="/messages" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-300 hover:underline">
       <Bell size={17} aria-hidden /> {unread > 0 ? unread + " unread message" + (unread === 1 ? "" : "s") + " · Open inbox" : "Messages and care updates"}
     </Link>

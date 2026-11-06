@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PatientDailyCheckIn } from "@/components/PatientDailyCheckIn";
 import { PatientCheckInHistory } from "@/components/PatientCheckInHistory";
 import { PatientInboxNotice } from "@/components/PatientInboxNotice";
+import { EmergencyButton } from "@/components/EmergencyButton";
 import { PassiveMonitor } from "@/components/PassiveMonitor";
 import { toast } from "sonner";
 import {
@@ -70,7 +71,10 @@ export default function CheckInPage() {
             <h1 className="workspace-page-title">Hello, {patientRecord.name.trim().split(/\s+/)[0]}.</h1>
             <p className="mt-1 text-sm text-clinical-muted">Share how you’re feeling and see your care updates.</p>
           </div>
-          <PatientInboxNotice />
+          <div className="flex flex-wrap items-center gap-2">
+            <PatientInboxNotice />
+            <EmergencyButton patientId={patientRecord.id} placement="inline" />
+          </div>
         </header>
         <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <PatientDailyCheckIn patient={patientRecord} onSaved={() => setCheckInRevision((revision) => revision + 1)} />

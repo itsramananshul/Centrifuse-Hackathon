@@ -12,7 +12,10 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-export function EmergencyButton({ patientId }: { patientId: string }) {
+export function EmergencyButton({ patientId, placement = "floating" }: {
+  patientId: string;
+  placement?: "floating" | "inline";
+}) {
   const [showModal, setShowModal] = useState(false);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -61,7 +64,8 @@ export function EmergencyButton({ patientId }: { patientId: string }) {
       {/* ── Floating Emergency Button ──────────────────────── */}
       <button
         onClick={() => setShowModal(true)}
-        className="fixed top-20 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full bg-clinical-danger-action hover:bg-clinical-danger-action-hover text-white shadow-lg shadow-red-300/50 transition-all hover:scale-105 hover:shadow-xl emergency-pulse group"
+        className={"flex min-h-11 items-center gap-2 bg-clinical-danger-action px-4 py-2.5 text-white transition-colors hover:bg-clinical-danger-action-hover " +
+          (placement === "inline" ? "rounded-xl" : "fixed right-6 top-20 z-50 rounded-full shadow-lg shadow-red-300/50 emergency-pulse")}
         aria-label="Emergency - I Need Help Now"
       >
         <ShieldAlert className="w-5 h-5 flex-shrink-0" />

@@ -82,7 +82,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
       <Sidebar role={role} />
       <main id="app-content" className="workspace-main pt-16 md:pt-5">{children}</main>
       {role === "patient" && <AICompanionWidget patient={null} />}
-      {role === "patient" && patientId && (
+      {role === "patient" && patientId && pathname !== "/checkin" && (
         <EmergencyButton patientId={patientId} />
       )}
     </div>
