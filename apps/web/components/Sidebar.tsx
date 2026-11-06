@@ -48,7 +48,7 @@ const superNav = [
   { href: "/settings", label: "Settings", icon: ShieldCheck },
 ];
 
-export function Sidebar({ role }: { role: "patient" | "clinician" | "super" }) {
+export function Sidebar({ role, inset = false }: { role: "patient" | "clinician" | "super"; inset?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -103,16 +103,16 @@ export function Sidebar({ role }: { role: "patient" | "clinician" | "super" }) {
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="p-5 border-b border-clinical-border">
+      <div className={inset ? "px-4 pb-4 pt-5" : "p-5 border-b border-clinical-border"}>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center shadow-sm">
-            <Activity className="w-5 h-5 text-white" />
+          <div className={inset ? "grid size-9 shrink-0 place-items-center rounded-xl bg-[#f0f5f2] text-[#133b2d]" : "w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center shadow-sm"}>
+            <Activity className={inset ? "size-5" : "w-5 h-5 text-white"} aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+            <p className={inset ? "text-sm font-bold tracking-tight text-slate-900" : "text-lg font-bold text-slate-900 tracking-tight"}>
               {APP_NAME}
-            </h1>
-            <p className="text-[11px] text-clinical-muted font-medium uppercase tracking-wider">
+            </p>
+            <p className={inset ? "text-[11px] text-clinical-muted" : "text-[11px] text-clinical-muted font-medium uppercase tracking-wider"}>
               {role === "patient" ? "Patient Portal" : role === "super" ? "Command Center" : "Doctor Dashboard"}
             </p>
           </div>
@@ -120,7 +120,7 @@ export function Sidebar({ role }: { role: "patient" | "clinician" | "super" }) {
       </div>
 
       {/* Role badge */}
-      <div className="px-3 pt-3">
+      {!inset && <div className="px-3 pt-3">
         <div
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${
             role === "patient"
@@ -139,10 +139,11 @@ export function Sidebar({ role }: { role: "patient" | "clinician" | "super" }) {
           )}
           {role === "patient" ? "Patient Mode" : role === "super" ? "Lead Doctor" : "Doctor Mode"}
         </div>
-      </div>
+      </div>}
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-0.5">
+      <nav aria-label="Main navigation" className="flex-1 p-3 space-y-0.5">
+        {inset && <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-clinical-muted">Workspace</p>}
         {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -153,6 +154,7 @@ export function Sidebar({ role }: { role: "patient" | "clinician" | "super" }) {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               onClick={() => setMobileOpen(false)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
                 isActive
@@ -224,7 +226,9 @@ export function Sidebar({ role }: { role: "patient" | "clinician" | "super" }) {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex fixed left-0 top-0 h-full w-64 bg-clinical-card border-r border-clinical-border flex-col z-10">
+      <aside className={inset
+        ? "hidden md:flex sticky top-5 h-[calc(100dvh-4rem)] min-h-[380px] min-w-0 flex-col overflow-auto rounded-[20px] border border-[#25282b] bg-[#131416]"
+        : "hidden md:flex fixed left-0 top-0 h-full w-64 bg-clinical-card border-r border-clinical-border flex-col z-10"}>
         {sidebarContent}
       </aside>
     </>

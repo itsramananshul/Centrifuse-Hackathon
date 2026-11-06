@@ -2,12 +2,10 @@
 
 import { APP_NAME } from "@trialpulse/config";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Activity, Mic, Stethoscope, Shield, Loader2 } from "lucide-react";
 
 export default function RoleSelectionPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,7 +13,7 @@ export default function RoleSelectionPage() {
     const savedRole = localStorage.getItem("voxvitals-role");
     if (savedRole === "patient" || savedRole === "clinician" || savedRole === "super") {
       const dest = savedRole === "patient" ? "/checkin" : savedRole === "super" ? "/super" : "/dashboard";
-      router.replace(dest);
+      window.location.replace(dest);
       return;
     }
 
@@ -36,7 +34,7 @@ export default function RoleSelectionPage() {
         if (metaRole === "patient" || metaRole === "clinician" || metaRole === "super") {
           localStorage.setItem("voxvitals-role", metaRole);
           const dest = metaRole === "patient" ? "/checkin" : metaRole === "super" ? "/super" : "/dashboard";
-          router.replace(dest);
+          window.location.replace(dest);
           return;
         }
 
@@ -48,7 +46,7 @@ export default function RoleSelectionPage() {
     };
 
     fetchRole();
-  }, [router]);
+  }, []);
 
   const selectRole = async (role: "patient" | "clinician" | "super") => {
     localStorage.setItem("voxvitals-role", role);
@@ -71,7 +69,7 @@ export default function RoleSelectionPage() {
     }
 
     const dest = role === "patient" ? "/checkin" : role === "super" ? "/super" : "/dashboard";
-    router.push(dest);
+    window.location.assign(dest);
   };
 
   // Show loading while checking

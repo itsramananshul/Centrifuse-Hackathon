@@ -20,6 +20,7 @@ import {
 } from "@/components/PatientDetailPanel";
 import { SmartAlertBar } from "@/components/SmartAlertBar";
 import { DashboardHomeReviewQueue } from "@/components/HomeReviewQueue";
+import { DashboardOverview, overviewPanel } from "@/components/DashboardOverview";
 import { CohortInsightsPanel } from "@/components/CohortInsightsPanel";
 import { SimulationPanel, SyntheticBadge } from "@/components/SimulationPanel";
 import { OptimizationPanel } from "@/components/OptimizationPanel";
@@ -49,6 +50,7 @@ import {
   Lock,
   Target,
   Mail,
+  Search,
 } from "lucide-react";
 
 // ── Kanban column config ─────────────────────────────────────
@@ -106,6 +108,9 @@ export default function DashboardPage() {
   const [showLinkPatient, setShowLinkPatient] = useState(false);
   const [linkingPatient, setLinkingPatient] = useState(false);
   const [patientEmail, setPatientEmail] = useState("");
+  const [search, setSearch] = useState("");
+  const [queueTier, setQueueTier] = useState<"all" | "critical" | "high">("all");
+  const [queueLimit, setQueueLimit] = useState(5);
 
 
   // ── Slide-over panel ────────────────────────────────────────
@@ -250,7 +255,15 @@ export default function DashboardPage() {
     (r) => r.riskTier === "critical"
   ).length;
 
-  const checkinsToday = mergedCheckins.filter((c) => {
+  const overviewRecords = useMemo(() => {
+    const patientIds = new Set(mergedPatients.map((patient) => patient.id));
+    return {
+      checkIns: mergedCheckins.filter((entry) => patientIds.has(entry.patientId)),
+      alerts: mergedAlerts.filter((alert) => patientIds.has(alert.patientId)),
+    };
+  }, [mergedPatients, mergedCheckins, mergedAlerts]);
+
+  const checkinsToday = overviewRecords.checkIns.filter((c) => {
     const d = new Date(c.timestamp);
     const now = new Date();
     return d.toDateString() === now.toDateString();
@@ -315,6 +328,11 @@ export default function DashboardPage() {
   const selectedScored = rankedPatients.find(
     (r) => r.patient.id === selectedPatientId
   );
+  const searchText = search.trim().toLowerCase();
+  const visibleQueue = rankedPatients.filter(({ patient, riskTier }) =>
+    (queueTier === "all" || riskTier === queueTier) &&
+    (patient.name + " " + patient.condition).toLowerCase().includes(searchText)
+  );
 
   // ── Handlers ────────────────────────────────────────────────
 
@@ -353,26 +371,32 @@ export default function DashboardPage() {
   // ── Render ──────────────────────────────────────────────────
 
   return (
-    <div className="h-[calc(100vh-2rem)] md:h-[calc(100vh-4rem)] flex flex-col">
+    <div className="space-y-4">
       {/* ── Top Bar ──────────────────────────────────────── */}
       <div className="flex-shrink-0 mb-3">
         {/* Header row */}
-        <div className="flex items-center justify-between mb-2.5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              High-Risk Patient Dashboard
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Clinical overview
             </h1>
             <div className="flex items-center gap-3 mt-0.5">
               <p className="text-xs text-clinical-muted">
-                AI-powered patient risk monitoring &amp; triage
+                {new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(new Date())}
               </p>
               <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium">
                 <Lock className="w-2.5 h-2.5" />
-                Authorized access
+                {loading ? "Connecting" : "Monitoring active"}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="relative min-w-0">
+              <span className="sr-only">Search patients</span>
+              <Search size={15} className="pointer-events-none absolute left-3 top-3.5 text-slate-400" aria-hidden="true" />
+              <input type="search" name="patient-search" className="input min-h-11 w-44 rounded-full bg-[#151618] pl-9 text-base sm:w-52" value={search}
+                placeholder="Search patients…" onChange={(event) => { setSearch(event.target.value); setQueueLimit(5); }} />
+            </label>
             {syntheticData && (
               <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-50 border border-purple-200 text-[11px] font-semibold text-purple-700">
                 <FlaskConical className="w-3 h-3" />
@@ -381,14 +405,14 @@ export default function DashboardPage() {
             )}
             <button
               onClick={() => setShowLinkPatient(true)}
-              className="btn-secondary flex items-center gap-1.5 text-sm py-1.5 px-3"
+              className="btn-secondary flex min-h-11 items-center gap-1.5 px-3 text-sm"
             >
               <Link2 className="w-3.5 h-3.5" />
               Link Patient
             </button>
             <Link
               href="/checkin"
-              className="btn-primary flex items-center gap-1.5 text-sm py-1.5 px-3"
+              className="btn-primary flex min-h-11 items-center gap-1.5 px-3 text-sm"
             >
               <Mic className="w-3.5 h-3.5" />
               New Check-in
@@ -398,9 +422,9 @@ export default function DashboardPage() {
 
         {/* Stats strip */}
         {loading ? (
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="card py-2.5 px-3 flex items-center gap-2">
+              <div key={i} className={overviewPanel + " min-h-[128px]"}>
                 <Skeleton className="w-8 h-8 rounded-lg" />
                 <div className="space-y-1">
                   <Skeleton className="h-5 w-8" />
@@ -410,34 +434,84 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <MiniStatCard
               icon={<Users className="w-4 h-4" />}
-              label="Monitored"
+              label="Monitored patients"
               value={mergedPatients.length}
               accent="bg-primary-50 text-primary-400"
+              color="#6ed8aa"
+              caption="Current cohort"
             />
             <MiniStatCard
               icon={<AlertTriangle className="w-4 h-4" />}
-              label="High Risk"
+              label="High-risk patients"
               value={highRiskCount}
               accent="bg-amber-50 text-amber-600"
+              color="#f29a64"
+              caption="High or critical tier"
             />
             <MiniStatCard
               icon={<Flame className="w-4 h-4" />}
-              label="Emergencies"
+              label="Critical patients"
               value={emergencyCount}
               accent="bg-red-50 text-red-600"
+              color="#f17d86"
+              caption="Critical risk tier"
             />
             <MiniStatCard
               icon={<Activity className="w-4 h-4" />}
-              label="Check-ins Today"
+              label="Check-ins today"
               value={checkinsToday}
-              accent="bg-emerald-50 text-emerald-600"
+              accent="bg-purple-50 text-purple-700"
+              color="#b29af5"
+              caption="Submitted today"
             />
           </div>
         )}
       </div>
+
+      {!loading && <DashboardOverview patients={mergedPatients} checkIns={overviewRecords.checkIns} alerts={overviewRecords.alerts} queue={
+        <section className={overviewPanel} aria-labelledby="priority-queue-title">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 id="priority-queue-title" className="text-base font-semibold text-slate-900">Priority patient queue</h2>
+              <p className="mt-1 text-xs text-clinical-muted">{visibleQueue.length} matching patients · sorted by risk score</p>
+            </div>
+            <div className="flex flex-wrap gap-1" aria-label="Risk filter">
+              {(["all", "critical", "high"] as const).map((tier) => <button key={tier} type="button" aria-pressed={queueTier === tier} onClick={() => { setQueueTier(tier); setQueueLimit(5); }}
+                className={"min-h-11 rounded-lg px-2 text-xs capitalize " + (queueTier === tier ? "bg-primary-100 text-primary-300" : "text-slate-600 hover:bg-slate-100")}>
+                {tier === "high" ? "High risk" : tier}
+              </button>)}
+            </div>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-[11px] uppercase tracking-wide text-clinical-muted"><tr>
+                <th scope="col" className="py-2 pr-3 font-medium">Patient</th>
+                <th scope="col" className="py-2 pr-3 font-medium">Risk tier</th>
+                <th scope="col" className="py-2 text-right font-medium">Score</th>
+              </tr></thead>
+              <tbody className="divide-y divide-clinical-border">
+                {visibleQueue.slice(0, queueLimit).map((row) => {
+                  const tier = KANBAN_COLUMNS.find((item) => item.tier === row.riskTier)!;
+                  return <tr key={row.patient.id} className="align-middle">
+                    <th scope="row" className="min-w-[7rem] py-1.5 pr-3 font-normal">
+                      <button type="button" className="block min-h-11 w-full break-words rounded-md text-left font-semibold text-slate-900 hover:text-primary-300 focus-visible:outline focus-visible:outline-primary-400"
+                        onClick={() => handleSelectPatient(row.patient.id)}>{row.patient.name}<span className="block text-xs font-normal text-clinical-muted">{row.patient.condition}</span></button>
+                      {syntheticPatientIds.has(row.patient.id) && <SyntheticBadge />}
+                    </th>
+                    <td className="py-2 pr-3"><span className={"inline-flex whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium " + tier.headerBg + " " + tier.textColor}>{tier.label}</span></td>
+                    <td className="py-2 text-right font-semibold tabular-nums text-slate-900">{row.compositeScore}</td>
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+          {!visibleQueue.length && <p className="mt-4 text-sm text-clinical-muted">No patients match this view.</p>}
+          {visibleQueue.length > queueLimit && <button type="button" className="btn-secondary mt-2 min-h-11 text-sm" onClick={() => setQueueLimit((current) => current + 5)}>Show more patients</button>}
+        </section>
+      } />}
 
       {!loading && <div className="mb-3 flex-shrink-0">
         <DashboardHomeReviewQueue patients={patients} checkIns={checkins} />
@@ -453,6 +527,8 @@ export default function DashboardPage() {
         </div>
       )}
 
+      <details className={overviewPanel}>
+      <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-slate-900">Patient board by risk tier</summary>
       {/* ── Color Legend ──────────────────────────────────── */}
       {!loading && (
         <div className="flex-shrink-0 flex items-center gap-4 mb-3 px-1">
@@ -521,6 +597,7 @@ export default function DashboardPage() {
           );
         })}
       </div>
+      </details>
 
       {/* ── Slide-over Detail Panel ──────────────────────── */}
       {slideOverOpen && (
@@ -795,25 +872,30 @@ function MiniStatCard({
   label,
   value,
   accent,
+  color,
+  caption,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
   accent: string;
+  color: string;
+  caption: string;
 }) {
   return (
-    <div className="card py-2.5 px-3 flex items-center gap-2.5">
+    <div className={overviewPanel + " border-b-2"} style={{ borderBottomColor: color }}>
       <div
         className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${accent}`}
       >
         {icon}
       </div>
-      <div>
-        <div className="text-lg font-bold text-slate-900 tabular-nums leading-tight">
+      <div className="mt-2">
+        <div className="text-xs font-medium text-slate-700">{label}</div>
+        <div className="text-3xl font-bold text-slate-900 tabular-nums leading-tight">
           {value}
         </div>
         <div className="text-[11px] text-clinical-muted font-medium leading-tight">
-          {label}
+          {caption}
         </div>
       </div>
     </div>
