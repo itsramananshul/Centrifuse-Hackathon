@@ -81,9 +81,9 @@ const config: Config = {
         fuchsia: darkStatus(colors.fuchsia),
         pink: darkStatus(colors.pink),
         clinical: {
-          bg: "#0c0d0e",
-          card: "#171819",
-          border: "#303234",
+          bg: "#0b0c0e",
+          card: "#151618",
+          border: "#282b2f",
           muted: "#a2a7ab",
           success: "#10b981",
           warning: "#f59e0b",

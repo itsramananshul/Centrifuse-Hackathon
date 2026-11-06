@@ -168,7 +168,7 @@ export default function SignUpPage() {
   // Step 1
   if (step === "credentials") {
     return (
-      <div className="bg-clinical-card rounded-2xl shadow-xl border border-slate-200/60 p-8">
+      <div className="workspace-panel sm:p-8">
         <h2 className="text-xl font-semibold text-slate-900 mb-1">
           Create an account
         </h2>
@@ -294,7 +294,7 @@ export default function SignUpPage() {
   // Verify email
   if (step === "verify-email") {
     return (
-      <div className="bg-clinical-card rounded-2xl shadow-xl border border-slate-200/60 p-8 text-center">
+      <div className="workspace-panel sm:p-8 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 mb-5">
           <Mail className="w-8 h-8 text-primary-400" />
         </div>
@@ -324,7 +324,7 @@ export default function SignUpPage() {
   // Step 2
   if (step === "voice-setup") {
     return (
-      <div className="bg-clinical-card rounded-2xl shadow-xl border border-slate-200/60 p-8">
+      <div className="workspace-panel sm:p-8">
         <h2 className="text-xl font-semibold text-slate-900 mb-1">
           Set Your Voice Phrase
         </h2>
@@ -393,7 +393,7 @@ export default function SignUpPage() {
 
   // Done
   return (
-    <div className="bg-clinical-card rounded-2xl shadow-xl border border-slate-200/60 p-8 text-center">
+    <div className="workspace-panel sm:p-8 text-center">
       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-100 mb-4">
         <CheckCircle2 className="w-6 h-6 text-emerald-600" />
       </div>

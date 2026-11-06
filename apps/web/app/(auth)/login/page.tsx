@@ -165,7 +165,7 @@ export default function LoginPage() {
   // Mode chooser
   if (mode === "choose") {
     return (
-      <div className="bg-clinical-card rounded-2xl shadow-xl border border-slate-200/60 p-8">
+      <div className="workspace-panel sm:p-8">
         <h2 className="text-xl font-semibold text-slate-900 mb-1">
           Welcome back
         </h2>
@@ -225,7 +225,7 @@ export default function LoginPage() {
   // Voice login
   if (mode === "voice") {
     return (
-      <div className="bg-clinical-card rounded-2xl shadow-xl border border-slate-200/60 p-8">
+      <div className="workspace-panel sm:p-8">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-xl font-semibold text-slate-900">
             Voice Sign In
@@ -351,7 +351,7 @@ export default function LoginPage() {
 
   // Email login
   return (
-    <div className="bg-clinical-card rounded-2xl shadow-xl border border-slate-200/60 p-8">
+    <div className="workspace-panel sm:p-8">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-xl font-semibold text-slate-900">Email Sign In</h2>
         <button

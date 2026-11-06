@@ -343,20 +343,20 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-6rem)] flex flex-col animate-fade-in-up">
+    <div className="flex h-[calc(100dvh-5.5rem)] min-h-[420px] flex-col md:h-[calc(100dvh-2.75rem)]">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <MessageSquare className="w-5 h-5 text-primary-400" />
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">Messages</h1>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Messages</h1>
         <span className="text-xs text-clinical-muted">
           {contacts.length} contact{contacts.length !== 1 ? "s" : ""}
         </span>
       </div>
 
       {/* Two-panel layout */}
-      <div className="flex-1 flex rounded-xl border border-clinical-border bg-clinical-card overflow-hidden min-h-0">
+      <div className="workspace-panel flex min-h-0 flex-1 overflow-hidden !p-0">
         {/* Left: Contacts */}
-        <div className={`w-full md:w-80 md:border-r border-clinical-border flex-shrink-0 ${
+        <div className={`w-full border-clinical-border md:w-[38%] md:max-w-80 md:shrink-0 md:border-r ${
           mobileShowChat ? "hidden md:flex md:flex-col" : "flex flex-col"
         }`}>
           <ContactList

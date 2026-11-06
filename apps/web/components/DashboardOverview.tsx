@@ -10,7 +10,7 @@ const palette = [colors.green, colors.blue, colors.lavender, colors.orange, colo
 const tick = { fill: "#a2a7ab", fontSize: 11 };
 const tooltip = { background: "#171a1d", border: "1px solid #363a3e", borderRadius: 10, color: "#f4f5f5" };
 
-export const overviewPanel = "min-w-0 rounded-[20px] border border-[#26292d] bg-[#151618] p-4 sm:p-5";
+export const overviewPanel = "workspace-panel";
 
 function Legend({ items }: { items: { name: string; color: string }[] }) {
   return <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">

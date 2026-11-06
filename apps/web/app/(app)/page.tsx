@@ -75,10 +75,10 @@ export default function RoleSelectionPage() {
   // Show loading while checking
   if (loading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-50 via-primary-50/30 to-slate-100 z-50">
+      <div className="flex min-h-dvh items-center justify-center bg-clinical-bg">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-600 mb-5 shadow-lg">
-            <Activity className="w-8 h-8 text-white" />
+          <div className="workspace-mark mx-auto mb-5 size-16">
+            <Activity className="size-8" aria-hidden="true" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-2">
             {APP_NAME}
@@ -90,11 +90,11 @@ export default function RoleSelectionPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-50 via-primary-50/30 to-slate-100 z-50">
+    <main className="flex min-h-dvh items-center justify-center bg-clinical-bg py-8">
       <div className="max-w-lg w-full px-6 text-center animate-fade-in-up">
         {/* Logo */}
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-600 mb-5 shadow-lg animate-scale-in">
-          <Activity className="w-8 h-8 text-white" />
+        <div className="workspace-mark mx-auto mb-5 size-16">
+          <Activity className="size-8" aria-hidden="true" />
         </div>
         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
           {APP_NAME}
@@ -151,6 +151,6 @@ export default function RoleSelectionPage() {
           </button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
