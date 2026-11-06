@@ -1,25 +1,55 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, ChevronRight, MessageSquare, X } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Alert, CheckIn, Patient } from "@trialpulse/types";
 import { newerCheckInForAlert } from "@/lib/alert-follow-up";
-import { comparison, fromExistingPatient, hasHomeReport, makeDays, measures, metricText, shiftDay, shortDate, summarize } from "@/lib/visit-review";
+import { api } from "@/lib/api";
+import { comparison, fromExistingPatient, hasHomeReport, makeDays, measures, metricText, shiftDay, shortDate, summarize, type Measure } from "@/lib/visit-review";
 
-export function PatientSnapshot({ patient, checkIns, simulated, onClose, alerts, details }: {
-  patient: Patient; checkIns: CheckIn[]; simulated: boolean; onClose?: () => void; alerts: Alert[]; details: ReactNode;
+function axisFor(metric: Measure) {
+  return measures[metric].kind === "yes-no" ? "reported" : "number";
+}
+
+function AlertEvidence({ alert, knownCheckIn }: { alert: Alert; knownCheckIn?: CheckIn }) {
+  const [fetched, setFetched] = useState<CheckIn>();
+  const [unavailable, setUnavailable] = useState(false);
+  useEffect(() => {
+    if (!alert.checkInId || knownCheckIn?.analysis) return;
+    let active = true;
+    api.getCheckIn(alert.checkInId).then((entry) => {
+      if (active && entry.patientId === alert.patientId) setFetched(entry);
+      else if (active) setUnavailable(true);
+    }).catch(() => { if (active) setUnavailable(true); });
+    return () => { active = false; };
+  }, [alert.checkInId, alert.patientId, knownCheckIn?.analysis]);
+
+  const source = fetched ?? knownCheckIn;
+  return <div className="mt-2 space-y-2 border-t border-current/15 pt-2 text-sm">
+    {source?.analysis && <p className="break-words"><strong className="block">AI summary</strong>{source.analysis.summary}</p>}
+    {source ? <p className="whitespace-pre-wrap break-words"><strong className="block">Original check-in</strong>{source.transcript}</p>
+      : <p role="status">{!alert.checkInId ? "This alert has no linked check-in." : unavailable ? "Could not load the linked check-in." : "Loading the linked check-in…"}</p>}
+  </div>;
+}
+
+export function PatientSnapshot({ patient, checkIns, simulated, onClose, alerts, selectedAlertId, details }: {
+  patient: Patient; checkIns: CheckIn[]; simulated: boolean; onClose?: () => void; alerts: Alert[]; selectedAlertId?: string; details: ReactNode;
 }) {
   const record = useMemo(() => fromExistingPatient(patient, checkIns.filter((item) => item.patientId === patient.id)), [patient, checkIns]);
   const [period, setPeriod] = useState(record.lastVisit ? "visit" : "7");
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [openEvidenceId, setOpenEvidenceId] = useState<string>();
   const milestone = record.milestones[0];
   const start = period === "visit" ? record.start : shiftDay(record.end, 1 - Number(period));
   const days = makeDays(start, record.end, record.records);
   const latest = [...record.records].sort((a, b) => b.day.localeCompare(a.day) || (b.recordedAt ?? "").localeCompare(a.recordedAt ?? ""))[0];
-  const metrics = record.defaults.filter((metric) => days.some((day) => day.values[metric] !== undefined)).slice(0, 2);
+  const preferred: Measure[] = /arthritis|psoriasis/i.test(patient.condition) ? ["pain", "activity"] : record.defaults;
+  const metrics = [...new Set(preferred)].filter((metric) => days.some((day) => day.values[metric] !== undefined)).slice(0, 2);
   const rows = days.map(({ day, values }) => ({ day: shortDate(day), ...values }));
+  const reportedDays = days.filter(hasHomeReport).length;
+  const visibleMilestone = milestone && days.some(({ day }) => day === milestone.day) ? milestone : undefined;
   const compared = milestone ? comparison(record.records, milestone.day, record.comparisonWidth ?? 5) : null;
   const gaps = compared?.after.filter((day) => !hasHomeReport(day)).length ?? 0;
   const coughBefore = compared && summarize(compared.before, "cough");
@@ -34,9 +64,17 @@ export function PatientSnapshot({ patient, checkIns, simulated, onClose, alerts,
   const name = demo ? patient.name.replace(/\s+\(Demo\)$/, "") : patient.name;
   const originalPreview = latest?.detail.split("Home tracker ·")[0]?.trim();
   const narrative = record.practiceCase ? originalPreview?.replace(/^Fictional HealthGPS demo check-in\.\s*/, "") : originalPreview;
-  const binary = metrics.every((metric) => measures[metric].kind === "yes-no");
+  const numeric = metrics.find((metric) => axisFor(metric) === "number");
+  const hasBinary = metrics.some((metric) => axisFor(metric) === "reported");
+  const chartAxis = numeric ? "number" : "reported";
   const openAlerts = alerts.filter((alert) => !alert.acknowledged);
   const alertCount = openAlerts.length;
+  const urgentAlert = openAlerts.find((alert) => alert.id === selectedAlertId) ?? openAlerts.filter(({ severity }) =>
+    severity === "critical" || severity === "high").sort((left, right) =>
+    Number(right.severity === "critical") - Number(left.severity === "critical") || right.createdAt.localeCompare(left.createdAt))[0];
+  const alertStyle = openAlerts.some((alert) => alert.severity === "critical") ? "font-semibold text-red-800"
+    : openAlerts.some((alert) => alert.severity === "high") ? "font-semibold text-orange-800"
+    : alertCount ? "font-medium text-amber-900" : "text-slate-600";
   const hasFollowUp = openAlerts.some((alert) => newerCheckInForAlert(alert, checkIns));
 
   return <section aria-labelledby="patient-snapshot-heading" className="min-w-0 space-y-4">
@@ -56,6 +94,15 @@ export function PatientSnapshot({ patient, checkIns, simulated, onClose, alerts,
         <p className="text-sm text-clinical-muted">{patient.condition}{demo ? " · Fictional practice record" : ""}</p>
       </div>
     </div>
+    {urgentAlert && <div className={"rounded-xl border px-3 py-2 text-sm " + (urgentAlert.severity === "critical"
+      ? "border-red-200 bg-red-50 text-red-900" : "border-orange-200 bg-orange-50 text-orange-900")}>
+      <p className="font-semibold">{urgentAlert.severity === "critical" ? "Critical alert open" : "High-priority alert open"}</p>
+      <p className="mt-1 break-words">{urgentAlert.message}</p>
+      <details key={urgentAlert.id} onToggle={(event) => setOpenEvidenceId(event.currentTarget.open ? urgentAlert.id : undefined)}>
+        <summary className="flex min-h-10 cursor-pointer items-center font-semibold underline underline-offset-4">See alert evidence</summary>
+        {openEvidenceId === urgentAlert.id && <AlertEvidence alert={urgentAlert} knownCheckIn={checkIns.find(({ id }) => id === urgentAlert.checkInId)} />}
+      </details>
+    </div>}
     {summary && <div>
       <h3 className="text-xl tracking-tight">{summary}</h3>
       <p className="mt-0.5 text-sm text-clinical-muted">Based on recorded check-ins.</p>
@@ -76,24 +123,45 @@ export function PatientSnapshot({ patient, checkIns, simulated, onClose, alerts,
         </label>
       </div>
       {metrics.length ? <>
-        <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-          {metrics.map((metric) => <li key={metric} className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded-full" style={{ backgroundColor: measures[metric].color }} aria-hidden="true" />{measures[metric].label}
-          </li>)}
+        <ul className="mt-3 grid grid-cols-2 gap-2 text-xs">
+          {metrics.map((metric) => {
+            const { logged, positive } = summarize(days, metric);
+            const values = days.flatMap(({ values }) => values[metric] === undefined ? [] : [values[metric]]);
+            const first = metricText(metric, values[0]);
+            const last = metricText(metric, values[values.length - 1]);
+            return <li key={metric} className="min-w-0 rounded-lg border border-clinical-border px-2.5 py-2">
+              <span className="flex items-center gap-1.5 text-slate-700">
+                <span className="h-0.5 w-3 shrink-0 rounded-full" style={{ backgroundColor: measures[metric].color }} aria-hidden="true" />
+                {measures[metric].label}
+              </span>
+              <span className="mt-1 block font-semibold tabular-nums text-slate-900">
+                {axisFor(metric) === "reported" ? "Yes on " + positive + " of " + logged + (logged === 1 ? " answered day" : " answered days")
+                  : logged === 1 ? last : first + " → " + last}
+              </span>
+              {axisFor(metric) === "number" && <span className="text-clinical-muted">{logged === 1 ? "One reading" : "First to latest reading"}</span>}
+            </li>;
+          })}
         </ul>
         <div className="mt-2 h-[clamp(8rem,15vw,10rem)] min-w-0">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={rows} margin={{ left: 0, right: 8, top: 12, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
               <XAxis dataKey="day" tick={{ fill: "var(--chart-ink)", fontSize: 11 }} tickLine={false} minTickGap={15} />
-              <YAxis width={26} allowDecimals={false} domain={binary ? [0, 1] : ["auto", "auto"]} ticks={binary ? [0, 1] : undefined}
-                tick={{ fill: "var(--chart-ink)", fontSize: 10 }} tickFormatter={binary ? (value) => value ? "Yes" : "No" : undefined} />
-              {milestone && days.some(({ day }) => day === milestone.day) && <ReferenceLine x={shortDate(milestone.day)} stroke="var(--chart-ink)" strokeDasharray="4 4" />}
+              {numeric && <YAxis yAxisId="number" width={32} domain={numeric === "pain" ? [0, 10] : ["auto", "auto"]}
+                ticks={numeric === "pain" ? [0, 5, 10] : undefined}
+                tick={{ fill: measures[numeric].color, fontSize: 10 }} tickFormatter={numeric === "pain" ? (value) => value + "/10" : undefined} />}
+              {hasBinary && <YAxis yAxisId="reported" width={27} orientation={numeric ? "right" : "left"} allowDecimals={false}
+                domain={[0, 1]} ticks={[0, 1]} tick={{ fill: numeric ? measures.activity.color : "var(--chart-ink)", fontSize: 10 }}
+                tickFormatter={(value) => value ? "Yes" : "No"} />}
+              {visibleMilestone && <ReferenceLine yAxisId={chartAxis} x={shortDate(visibleMilestone.day)} stroke="var(--chart-ink)" strokeDasharray="4 4" />}
               <Tooltip formatter={(value, name) => [metricText(name as (typeof metrics)[number], Number(value)), measures[name as (typeof metrics)[number]].label]} />
-              {metrics.map((metric) => <Line key={metric} dataKey={metric} stroke={measures[metric].color} strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} connectNulls={false} />)}
+              {metrics.map((metric) => <Line key={metric} yAxisId={axisFor(metric)} dataKey={metric} stroke={measures[metric].color}
+                strokeWidth={2} strokeDasharray={metric === "activity" ? "4 3" : undefined} dot={{ r: 3 }} isAnimationActive={false} connectNulls={false} />)}
             </LineChart>
           </ResponsiveContainer>
         </div>
+        <p className="mt-1 text-xs tabular-nums text-clinical-muted">{reportedDays} of {days.length} days with a check-in. Gaps mean no recorded value.</p>
+        {visibleMilestone && <p className="text-xs text-clinical-muted">Vertical marker: {visibleMilestone.label} · {shortDate(visibleMilestone.day)}</p>}
       </> : <p className="mt-2 rounded-xl border border-clinical-border px-3 py-4 text-sm text-clinical-muted">No symptom measurements in this period.</p>}
     </div>
     {gaps > 0 && <Link href={review + "#reporting-gaps-heading"} className="flex min-h-11 items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
@@ -117,7 +185,7 @@ export function PatientSnapshot({ patient, checkIns, simulated, onClose, alerts,
       </Link>}
     </div>}
     <details onToggle={(event) => setDetailsOpen(event.currentTarget.open)}>
-      <summary className={"min-h-10 cursor-pointer rounded-lg py-2 text-sm " + (alertCount ? "font-medium text-red-700" : "text-slate-600")}>
+      <summary className={"min-h-10 cursor-pointer rounded-lg py-2 text-sm " + alertStyle}>
         {alertCount ? "Active alerts and patient details (" + alertCount + ")" : "More patient details"}
         {hasFollowUp && <span className="ml-2 inline-block rounded-full bg-primary-100 px-2 py-0.5 text-xs text-primary-700">Newer check-in</span>}
       </summary>

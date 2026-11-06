@@ -13,7 +13,6 @@ import { createClient } from "@/lib/supabase/client";
 import { checkInObservationDate } from "@/lib/home-tracker";
 import { fromExistingPatient, isPracticePatient, shiftDay } from "@/lib/visit-review";
 import { rankPatientsByRisk, type RiskScoredPatient } from "@/lib/risk-scoring";
-import { generateSmartAlerts } from "@/lib/alert-engine";
 import { computeCohortMetrics } from "@/lib/cohort-analytics";
 import { generateSyntheticData, type SyntheticData } from "@/lib/simulation/scenarios";
 import { recordAuditEvent } from "@/lib/security/audit";
@@ -106,6 +105,14 @@ const panelTitle: Record<RightPanelView, string> = {
   review: "Review and risk tools",
 };
 
+const queueStatus = {
+  critical: { order: 0, style: "bg-red-100 text-red-800" },
+  high: { order: 1, style: "bg-orange-50 text-orange-800" },
+  review: { order: 2, style: "bg-amber-50 text-amber-900" },
+  reported: { order: 3, style: "bg-primary-50 text-primary-700" },
+  empty: { order: 3, style: "bg-slate-100 text-slate-600" },
+};
+
 export default function DashboardPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -148,6 +155,7 @@ export default function DashboardPage() {
     return () => window.removeEventListener("keydown", focusSearch);
   }, []);
   const [queueLimit, setQueueLimit] = useState(5);
+  const [selectedAlertId, setSelectedAlertId] = useState<string>();
 
 
   // ── Slide-over panel ────────────────────────────────────────
@@ -290,11 +298,6 @@ export default function DashboardPage() {
     [mergedPatients, mergedCheckins, mergedAlerts]
   );
 
-  const highRiskCount = rankedPatients.filter(
-    (r) => r.riskTier === "critical" || r.riskTier === "high"
-  ).length;
-
-
   const overviewRecords = useMemo(() => {
     const patientIds = new Set(mergedPatients.map((patient) => patient.id));
     return {
@@ -308,13 +311,6 @@ export default function DashboardPage() {
     const now = new Date();
     return d.toDateString() === now.toDateString();
   }).length;
-
-  // ── Smart alerts ────────────────────────────────────────────
-
-  const smartAlerts = useMemo(
-    () => generateSmartAlerts(mergedPatients, mergedCheckins, mergedAlerts),
-    [mergedPatients, mergedCheckins, mergedAlerts]
-  );
 
   // ── Cohort metrics ──────────────────────────────────────────
 
@@ -372,9 +368,10 @@ export default function DashboardPage() {
     return rankedPatients.map((row) => {
       const { patient, alerts, riskTier } = row;
       const open = alerts.filter((alert) => !alert.acknowledged);
-      if (open.some(({ severity }) => severity === "critical")) return { row, needsReview: true, reason: "Critical alert open" };
-      if (open.length) return { row, needsReview: true, reason: open.length + (open.length === 1 ? " open alert" : " open alerts") };
-      if (riskTier === "critical" || riskTier === "high") return { row, needsReview: true, reason: "High dashboard risk" };
+      if (open.some(({ severity }) => severity === "critical")) return { row, level: "critical" as const, reason: "Critical alert open" };
+      if (open.some(({ severity }) => severity === "high")) return { row, level: "high" as const, reason: "High-priority alert open" };
+      if (riskTier === "critical" || riskTier === "high") return { row, level: riskTier, reason: riskTier === "critical" ? "Critical dashboard risk" : "High dashboard risk" };
+      if (open.length) return { row, level: "review" as const, reason: open.length + (open.length === 1 ? " open alert" : " open alerts") };
       const dates = checkedIn.get(patient.id);
       if (isPracticePatient(patient)) {
         const record = fromExistingPatient(patient, []);
@@ -382,15 +379,16 @@ export default function DashboardPage() {
         const width = record.comparisonWidth ?? 5;
         const missing = Array.from({ length: width }, (_, offset) => shiftDay(anchor, offset))
           .filter((day) => !dates?.has(day)).length;
-        if (missing) return { row, needsReview: true, reason: missing + (missing === 1 ? " missing check-in" : " missing check-ins") };
+        if (missing) return { row, level: "review" as const, reason: missing + (missing === 1 ? " missing check-in" : " missing check-ins") };
       }
-      return { row, needsReview: false, reason: dates?.size ? "Check-ins available" : "No check-ins recorded" };
-    }).sort((left, right) => Number(right.needsReview) - Number(left.needsReview));
+      return dates?.size ? { row, level: "reported" as const, reason: "No open alerts" } : { row, level: "empty" as const, reason: "No check-ins recorded" };
+    }).sort((left, right) => queueStatus[left.level].order - queueStatus[right.level].order);
   }, [mergedCheckins, rankedPatients]);
-  const reviewCount = queue.filter(({ needsReview }) => needsReview).length;
+  const reviewCount = queue.filter(({ level }) => queueStatus[level].order <= queueStatus.review.order).length;
+  const highRiskCount = queue.filter(({ level }) => level === "critical" || level === "high").length;
   const searchText = search.trim().toLowerCase();
-  const visibleQueue = queue.filter(({ row: { patient, riskTier }, needsReview }) =>
-    (queueTier === "all" || (queueTier === "review" ? needsReview : riskTier === queueTier)) &&
+  const visibleQueue = queue.filter(({ row: { patient }, level }) =>
+    (queueTier === "all" || (queueTier === "review" ? queueStatus[level].order <= queueStatus.review.order : level === queueTier)) &&
     (patient.name + " " + patient.condition).toLowerCase().includes(searchText)
   );
 
@@ -411,6 +409,7 @@ export default function DashboardPage() {
     simulated={syntheticPatientIds.has(selectedScored.patient.id)}
     onClose={onClose}
     alerts={selectedScored.alerts}
+    selectedAlertId={selectedAlertId}
     details={<PatientDetailPanel
       scored={selectedScored}
       checkins={mergedCheckins}
@@ -422,8 +421,9 @@ export default function DashboardPage() {
 
   // ── Handlers ────────────────────────────────────────────────
 
-  const handleSelectPatient = (patientId: string) => {
+  const handleSelectPatient = (patientId: string, alertId?: string) => {
     setSelectedPatientId(patientId);
+    setSelectedAlertId(alertId);
     setSnapshotOpen(true);
     setRightPanel("patient");
     setSlideOverOpen(true);
@@ -482,7 +482,7 @@ export default function DashboardPage() {
             <input ref={searchInput} type="search" name="patient-search" className="min-h-11 w-full border-b border-clinical-border bg-transparent pl-7 pr-2 text-base placeholder:text-slate-500 focus:border-primary-400 sm:w-[clamp(11rem,24vw,22rem)]"
               value={search} placeholder="Search patients" onChange={(event) => { setSearch(event.target.value); setQueueLimit(5); }} />
           </label>
-          <DashboardNotifications alerts={smartAlerts} onSelect={handleSelectPatient} />
+          <DashboardNotifications alerts={overviewRecords.alerts} patients={mergedPatients} onSelect={handleSelectPatient} />
           <Link href="/settings" aria-label="Profile settings" className="initials-badge">
             <UserRound size={18} aria-hidden="true" />
           </Link>
@@ -508,7 +508,7 @@ export default function DashboardPage() {
               )}
             </div>
             <ul className="divide-y divide-clinical-border">
-              {visibleQueue.slice(0, queueLimit).map(({ row, reason, needsReview }) => {
+              {visibleQueue.slice(0, queueLimit).map(({ row, reason, level }) => {
                 const { patient } = row;
                 const selected = (showInlineSnapshot || (slideOverOpen && rightPanel === "patient")) && selectedScored?.patient.id === patient.id;
                 const demo = isPracticePatient(patient) || syntheticPatientIds.has(patient.id);
@@ -522,7 +522,7 @@ export default function DashboardPage() {
                       <span className="flex flex-wrap items-center gap-1.5 break-words font-[family-name:var(--display-font)] text-[clamp(1rem,1.35vw,1.2rem)] text-slate-900">{name}{demo && <span className="practice-badge font-sans">Demo</span>}</span>
                       <span className="block break-words text-xs text-clinical-muted">{patient.condition}</span>
                     </span>
-                    <span className={"col-start-2 row-start-2 min-w-0 break-words text-xs sm:col-start-3 sm:row-start-1 sm:text-sm " + (needsReview ? "font-medium text-primary-700" : "text-slate-600")}>{reason}</span>
+                    <span className={"col-start-2 row-start-2 w-fit min-w-0 max-w-full break-words rounded-md px-1.5 py-0.5 text-xs font-medium sm:col-start-3 sm:row-start-1 sm:text-sm " + queueStatus[level].style}>{reason}</span>
                     <ArrowRight size={16} className="col-start-3 row-start-1 shrink-0 text-primary-700 sm:col-start-4" aria-hidden="true" />
                   </button>
                 </li>;

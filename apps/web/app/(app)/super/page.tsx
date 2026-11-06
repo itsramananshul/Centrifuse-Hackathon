@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import type { Patient, Alert, CheckIn } from "@trialpulse/types";
 import { api } from "@/lib/api";
 import { rankPatientsByRisk, type RiskScoredPatient } from "@/lib/risk-scoring";
-import { generateSmartAlerts } from "@/lib/alert-engine";
 import { computeCohortMetrics } from "@/lib/cohort-analytics";
 import { predictDropoutRisk } from "@/lib/dropout-risk";
 import { recordAuditEvent } from "@/lib/security/audit";
@@ -99,11 +98,6 @@ export default function SuperDoctorPage() {
     [patients, checkins, alerts]
   );
 
-  const smartAlerts = useMemo(
-    () => generateSmartAlerts(patients, checkins, alerts),
-    [patients, checkins, alerts]
-  );
-
   const cohort = useMemo(
     () => computeCohortMetrics(patients, checkins, rankedPatients),
     [patients, checkins, rankedPatients]
@@ -142,7 +136,7 @@ export default function SuperDoctorPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DashboardNotifications alerts={smartAlerts} onSelect={openPatient} />
+          <DashboardNotifications alerts={alerts} patients={patients} onSelect={openPatient} />
           <Link href="/super/assign-patient" className="btn-primary inline-flex min-h-11 items-center gap-2 text-sm">
             <UserPlus size={16} aria-hidden="true" /> Assign patient
           </Link>
